@@ -93,14 +93,14 @@ function render(m) {
   }));
   out += '<section><h2>Your commissions</h2>' + (deals.length ? table([{ t: 'Deal' }, { t: 'Type' }, { t: 'Collected', r: 1 }, { t: 'Supplier', r: 1 }, { t: 'Rate', r: 1 }, { t: 'Comm', r: 1 }, { t: 'Status', r: 1 }], deals) : '<div class="empty">Nothing credited yet.</div>') + '</section>';
 
-  var wait = m.waiting.map(function (w) { return '<tr>' + td('', '<div class="biz">' + esc(w.biz) + '</div><div class="sub">' + esc(w.client) + '</div>') + td('r', money(w.total)) + td('r dim', money(w.got)) + td('r amber', money(w.open)) + td('r dim', w.days + 'd') + '</tr>'; });
-  out += '<section><h2>Signed, waiting on money</h2>' + (wait.length ? table([{ t: 'Client' }, { t: 'Contract', r: 1 }, { t: 'Collected', r: 1 }, { t: 'Still owed', r: 1 }, { t: 'Since signing', r: 1 }], wait) : '<div class="empty">Every signed client has paid in full.</div>') + '</section>';
+  var wait = m.waiting.map(function (w) { return '<tr>' + td('', '<div class="biz">' + esc(w.biz) + '</div><div class="sub">' + esc(w.client) + '</div>') + td('dim', esc(w.kind || '')) + td('r', money(w.total)) + td('r dim', money(w.got)) + td('r amber', money(w.open)) + td('r comm', money(w.cut || 0)) + td('r dim', w.days + 'd') + '</tr>'; });
+  out += '<section><h2>Signed, waiting on money</h2>' + (wait.length ? table([{ t: 'Client' }, { t: 'Type' }, { t: 'Contract', r: 1 }, { t: 'Collected', r: 1 }, { t: 'Still owed', r: 1 }, { t: 'Your cut when paid', r: 1 }, { t: 'Since signing', r: 1 }], wait) : '<div class="empty">Every signed client has paid in full.</div>') + '</section>';
 
-  var uns = m.unsigned.map(function (u) { return '<tr>' + td('biz', esc(u.biz)) + td('r', money(u.total)) + td('dim', esc(u.status)) + td('r dim', u.days + 'd') + '</tr>'; });
-  out += '<section><h2>Sent, not signed (last 45 days)</h2>' + (uns.length ? table([{ t: 'Client' }, { t: 'Contract', r: 1 }, { t: 'Status' }, { t: 'Age', r: 1 }], uns) : '<div class="empty">No open agreements.</div>') + '</section>';
+  var uns = m.unsigned.map(function (u) { return '<tr>' + td('biz', esc(u.biz)) + td('dim', esc(u.kind || '')) + td('r', money(u.total)) + td('dim', esc(u.status)) + td('r dim', u.days + 'd') + '</tr>'; });
+  out += '<section><h2>Sent, not signed (last 45 days)</h2>' + (uns.length ? table([{ t: 'Client' }, { t: 'Type' }, { t: 'Contract', r: 1 }, { t: 'Status' }, { t: 'Age', r: 1 }], uns) : '<div class="empty">No open agreements.</div>') + '</section>';
 
   document.getElementById('app').innerHTML = out;
-  document.getElementById('foot').textContent = m.rows.length + ' deals credited. Payouts are recorded by Chris.' + (m.lastPayout ? ' Last payout ' + m.lastPayout.paid_on + ' ' + money(m.lastPayout.amount) + '.' : '') + ' New deals pay 10% of cash collected. Upsells pay 5% of collected minus supplier cost. Commission on a partial payment is on what has actually been collected.';
+  document.getElementById('foot').textContent = m.rows.length + ' deals credited. Payouts are recorded by Chris.' + (m.lastPayout ? ' Last payout ' + m.lastPayout.paid_on + ' ' + money(m.lastPayout.amount) + '.' : '') + ' New deals pay 10% of cash collected. Upsells pay 5% of collected minus supplier cost (5% to the rep who sold it and 5% to the rep who originally closed the client). An upsell on your client shows here the moment it is signed. Commission on a partial payment is on what has actually been collected.';
   lastOk = new Date();
   tick();
 }
