@@ -83,7 +83,7 @@ function funnelCols(r) {
 function adCols(r) {
   return '<td class="a">' + money2(r.spend) + '</td><td class="d">' + (r.impressions || 0).toLocaleString() + '</td>' +
     '<td class="d">' + pct(r.link_clicks || r.clicks, r.impressions) + '</td><td class="d">' + per(r.spend, r.link_clicks || r.clicks) + '</td><td class="d">' + pct(r.leads, r.link_clicks || r.clicks) + '</td>' +
-    '<td class="d">' + pct(r.p25, r.impressions) + '</td><td class="d">' + pct(r.thruplay, r.p25) + '</td><td class="d">' + (r.avg_watch ? r.avg_watch + 's' : '—') + '</td>';
+    '<td class="d">' + (r.plays ? pct(r.s3, r.impressions) : '—') + '</td><td class="d">' + (r.s3 ? pct(r.thruplay, r.s3) : '—') + '</td><td class="d">' + (r.avg_watch ? r.avg_watch + 's' : '—') + '</td>';
 }
 var FUNNEL_H = '<th>Leads</th><th>CPL</th><th>Booked</th><th>Lead→booked</th><th>Cost/booking</th><th>No-show</th><th>Sent</th><th>Booked→sent</th><th>Signed</th><th>Sent→signed</th><th>Cost/signed</th><th>Contracted</th><th>Paid</th><th>Cash</th><th>ROAS</th>';
 var AD_H = '<th>Spend</th><th>Impr</th><th>CTR</th><th>CPC</th><th>Click→lead</th><th>Hook</th><th>Hold</th><th>Avg watch</th>';
@@ -100,7 +100,7 @@ function render(d) {
     kpi('Revenue contracted', money(t.contracted), 'signed value from these leads', 'money') +
     kpi('Cash collected', money(t.cash), 'ledger, from these leads', 'money') +
     kpi('Ad spend', money2(t.spend), 'ROAS ' + x(t.cash, t.spend) + ' · contracted ' + x(t.contracted, t.spend), 'spend') +
-    kpi('Hook / hold', pct(t.p25, t.impressions) + ' / ' + pct(t.thruplay, t.p25), 'avg watch ' + (t.avg_watch ? t.avg_watch + 's' : '—') + ' · CTR ' + pct(t.link_clicks || t.clicks, t.impressions)) +
+    kpi('Hook / hold', (t.plays ? pct(t.s3, t.impressions) : '—') + ' / ' + (t.s3 ? pct(t.thruplay, t.s3) : '—'), 'avg watch ' + (t.avg_watch ? t.avg_watch + 's' : '—') + ' · CTR ' + pct(t.link_clicks || t.clicks, t.impressions)) +
     '</div>';
 
   var cr = d.creators.map(function (r) { return '<tr><td class="l"><span class="name">' + esc(r.creator) + '</span></td>' + adCols(r) + funnelCols(r) + '</tr>'; }).join('');
