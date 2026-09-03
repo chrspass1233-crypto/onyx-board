@@ -71,7 +71,13 @@ function render(m) {
   document.title = m.person.split(' ')[0] + "'s Commissions";
   document.getElementById('title').textContent = m.person + ' - Commissions';
   var out = '';
-  out += '<div class="strip">' + kpi('Earned', money(m.earned)) + kpi('Paid out', money(m.paid)) + kpi('Owed', money(m.owed), 'owed') + (m.waiting.length ? kpi('Waiting on clients', money(m.waitingTotal), 'wait') : '') + '</div>';
+  var D = m.dials || null;
+  out += '<div class="strip">' + kpi('Earned', money(m.earned)) + kpi('Paid out', money(m.paid)) + kpi('Owed', money(m.owed), 'owed') + (m.waiting.length ? kpi('Waiting on clients', money(m.waitingTotal), 'wait') : '') + (D ? kpi('Dials today', D.today + ' / ' + D.target, D.today >= D.target ? 'owed' : 'wait') : '') + '</div>';
+
+  if (D) {
+    var drows = D.by_day.map(function (d) { return '<tr>' + td('biz', esc(d.day)) + td('r ' + (d.dials >= D.target ? 'comm' : (d.dials ? 'amber' : 'dim')), String(d.dials)) + td('r dim', String(d.connects)) + '</tr>'; });
+    out += '<section><h2>Dials, last 7 days (target ' + D.target + ' a day)</h2>' + (drows.length ? table([{ t: 'Day' }, { t: 'Dials', r: 1 }, { t: '30s+ conversations', r: 1 }], drows) : '<div class="empty">No calls logged yet.</div>') + '<div class="empty">' + D.week + ' dials this week across ' + D.days_active + ' active day' + (D.days_active === 1 ? '' : 's') + ' (' + D.per_day + ' per active day), ' + D.connects_week + ' real conversations. Counted from GHL call records, refreshed hourly.</div></section>';
+  }
 
   if (m.failed.length) {
     out += '<section class="alert"><h2>Card declined - call them today</h2>' + table(
