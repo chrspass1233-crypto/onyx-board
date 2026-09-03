@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Commissions</title>
+<style>/*<![CDATA[*/
+:root{--bg:#0b0f14;--card:#131a23;--line:#1f2a37;--tx:#e6edf3;--dim:#8b98a5;--green:#3fb950;--amber:#d29922;--red:#f85149;--blue:#58a6ff}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:24px 16px}
+.wrap{max-width:900px;margin:0 auto}
+h1{font-size:22px;margin:0}
+.asof{color:var(--dim);font-size:13px;margin:4px 0 20px}
+.asof b{color:var(--green);font-weight:600}
+.strip{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 20px;flex:1;min-width:140px}
+.kpi .lbl{color:var(--dim);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.kpi .val{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi.owed .val{color:var(--green)}
+.kpi.wait .val{color:var(--amber)}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:18px;overflow:hidden}
+section h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:0;padding:12px 14px;border-bottom:1px solid var(--line)}
+section.alert h2{color:var(--red)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:620px}
+th{color:var(--dim);font-size:11px;letter-spacing:.12em;text-transform:uppercase;text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
+td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;font-variant-numeric:tabular-nums}
+tr.last td{border-bottom:none}
+.r{text-align:right}
+.dim{color:var(--dim)}
+.biz{font-weight:600}
+.sub{color:var(--dim);font-size:13px}
+.comm{color:var(--green);font-weight:700}
+.amber{color:var(--amber);font-weight:700}
+tr.done td{opacity:.55}
+.pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.pill.owed{background:rgba(210,153,34,.15);color:var(--amber)}
+.pill.paid{background:rgba(63,185,80,.15);color:var(--green)}
+.pill.rev{background:rgba(139,152,165,.16);color:var(--dim)}
+.empty{color:var(--dim);padding:14px;font-size:14px}
+.foot{color:var(--dim);font-size:13px;margin-top:6px}
+.err{background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.4);border-radius:10px;padding:14px;color:var(--tx)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
+/*]]>*/</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="title">Commissions</h1>
+  <div class="asof" id="asof"><span class="spin"></span>Pulling live numbers...</div>
+  <div id="app"></div>
+  <div class="foot" id="foot"></div>
+</div>
+<script>//<![CDATA[
+var API = 'https://rtbatvkghjnuwmgienqv.supabase.co/functions/v1/socialonyx-rep-board';
+var q = new URLSearchParams(location.search);
+var T = q.get('r') || (location.hash.match(/r=([A-Za-z0-9]+)/) || [])[1] || '';
+var lastOk = null;
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function money(n) { return '$' + Math.round(Number(n) || 0).toLocaleString('en-US'); }
+function typeLabel(t) { return t === 'new' ? 'new deal' : t === 'upsell_closer' ? 'upsell on your client' : t === 'upsell_seller' ? 'upsell you sold' : esc(t); }
+function td(cls, inner) { return '<td class="' + cls + '">' + inner + '</td>'; }
+function table(head, rows) {
+  var h = '<tr>' + head.map(function (x) { return '<th class="' + (x.r ? 'r' : '') + '">' + esc(x.t) + '</th>'; }).join('') + '</tr>';
+  return '<div class="scroll"><table><thead>' + h + '</thead><tbody>' + rows.join('') + '</tbody></table></div>';
+}
+function kpi(lbl, val, cls) { return '<div class="kpi ' + (cls || '') + '"><div class="lbl">' + esc(lbl) + '</div><div class="val">' + val + '</div></div>'; }
+
+function render(m) {
+  document.title = m.person.split(' ')[0] + "'s Commissions";
+  document.getElementById('title').textContent = m.person + ' - Commissions';
+  var out = '';
+  out += '<div class="strip">' + kpi('Earned', money(m.earned)) + kpi('Paid out', money(m.paid)) + kpi('Owed', money(m.owed), 'owed') + (m.waiting.length ? kpi('Waiting on clients', money(m.waitingTotal), 'wait') : '') + '</div>';
+
+  if (m.failed.length) {
+    out += '<section class="alert"><h2>Card declined - call them today</h2>' + table(
+      [{ t: 'Customer' }, { t: 'Amount', r: 1 }, { t: 'When' }, { t: 'Reason' }],
+      m.failed.map(function (f) { return '<tr>' + td('biz', esc(f.name)) + td('r', money(f.amount)) + td('dim', esc(f.when)) + td('dim', esc(f.reason)) + '</tr>'; })) + '</section>';
+  }
+
+  var deals = m.rows.map(function (e) {
+    var status = e.paid_at ? '<span class="pill paid">PAID ' + esc(String(e.paid_at).slice(0, 10)) + '</span>' : '<span class="pill owed">OWED</span>';
+    return '<tr class="' + (e.paid_at ? 'done' : '') + '">' + td('', '<div class="biz">' + esc(e.business) + '</div><div class="sub">' + esc(e.client) + '</div>') + td('dim', typeLabel(e.entry_type)) + td('r', money(e.collected)) + td('r dim', Number(e.supplier_cost) > 0 ? money(e.supplier_cost) : '-') + td('r dim', Math.round(Number(e.rate) * 100) + '%') + td('r comm', money(e.commission)) + td('r', status) + '</tr>';
+  }).concat(m.contested.map(function (e) {
+    return '<tr>' + td('', '<div class="biz">' + esc(e.business) + '</div><div class="sub">' + esc(e.client) + '</div>') + td('dim', typeLabel(e.entry_type)) + td('r', money(e.collected)) + td('r dim', '-') + td('r dim', Math.round(Number(e.rate) * 100) + '%') + td('r dim', money(e.commission)) + td('r', '<span class="pill rev">UNDER REVIEW</span>') + '</tr>';
+  }));
+  out += '<section><h2>Your commissions</h2>' + (deals.length ? table([{ t: 'Deal' }, { t: 'Type' }, { t: 'Collected', r: 1 }, { t: 'Supplier', r: 1 }, { t: 'Rate', r: 1 }, { t: 'Comm', r: 1 }, { t: 'Status', r: 1 }], deals) : '<div class="empty">Nothing credited yet.</div>') + '</section>';
+
+  var wait = m.waiting.map(function (w) { return '<tr>' + td('', '<div class="biz">' + esc(w.biz) + '</div><div class="sub">' + esc(w.client) + '</div>') + td('r', money(w.total)) + td('r dim', money(w.got)) + td('r amber', money(w.open)) + td('r dim', w.days + 'd') + '</tr>'; });
+  out += '<section><h2>Signed, waiting on money</h2>' + (wait.length ? table([{ t: 'Client' }, { t: 'Contract', r: 1 }, { t: 'Collected', r: 1 }, { t: 'Still owed', r: 1 }, { t: 'Since signing', r: 1 }], wait) : '<div class="empty">Every signed client has paid in full.</div>') + '</section>';
+
+  var uns = m.unsigned.map(function (u) { return '<tr>' + td('biz', esc(u.biz)) + td('r', money(u.total)) + td('dim', esc(u.status)) + td('r dim', u.days + 'd') + '</tr>'; });
+  out += '<section><h2>Sent, not signed (last 45 days)</h2>' + (uns.length ? table([{ t: 'Client' }, { t: 'Contract', r: 1 }, { t: 'Status' }, { t: 'Age', r: 1 }], uns) : '<div class="empty">No open agreements.</div>') + '</section>';
+
+  document.getElementById('app').innerHTML = out;
+  document.getElementById('foot').textContent = m.rows.length + ' deals credited. Payouts are recorded by Chris.' + (m.lastPayout ? ' Last payout ' + m.lastPayout.paid_on + ' ' + money(m.lastPayout.amount) + '.' : '') + ' New deals pay 10% of cash collected. Upsells pay 5% of collected minus supplier cost. Commission on a partial payment is on what has actually been collected.';
+  lastOk = new Date();
+  tick();
+}
+
+function tick() {
+  if (!lastOk) return;
+  var s = Math.round((Date.now() - lastOk.getTime()) / 1000);
+  document.getElementById('asof').innerHTML = '<b>LIVE</b> - updated ' + (s < 5 ? 'just now' : s < 60 ? s + 's ago' : Math.round(s / 60) + ' min ago') + '. Refreshes every minute. A deal shows up the moment the payment lands.';
+}
+
+function fail(msg) {
+  if (lastOk) { document.getElementById('asof').innerHTML = '<span style="color:var(--amber)">Could not refresh (' + esc(msg) + '). Showing numbers from ' + lastOk.toLocaleTimeString() + '.</span>'; return; }
+  document.getElementById('asof').textContent = '';
+  document.getElementById('app').innerHTML = '<div class="err">' + esc(msg) + '</div>';
+}
+
+function load() {
+  if (!T) { fail('This link is missing its access key. Ask Chris for your board link.'); return; }
+  fetch(API + '?r=' + encodeURIComponent(T) + '&json=1', { cache: 'no-store' })
+    .then(function (r) { if (r.status === 404) throw new Error('This link is not valid. Ask Chris for your board link.'); if (!r.ok) throw new Error('server ' + r.status); return r.json(); })
+    .then(render)
+    .catch(function (e) { fail(e.message || String(e)); });
+}
+load();
+setInterval(load, 60000);
+setInterval(tick, 5000);
+//]]></script>
+</body>
+</html>
