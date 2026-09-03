@@ -128,7 +128,16 @@ function fail(msg) {
   document.getElementById('app').innerHTML = '<div class="err">' + esc(msg) + '</div>';
 }
 var range = rng('today');
+var curKey = 'today';
+var SNAP = window.__ADS_SNAPSHOT || null;   // set by the HQ build: baked-in data, no network needed
 function load() {
+  if (SNAP) {
+    var snap = SNAP.ranges && SNAP.ranges[curKey];
+    if (!snap) { fail('Custom dates are only on the live dashboard. Use the button above.'); return; }
+    render(snap);
+    document.getElementById('asof').innerHTML = '<span style="color:var(--amber)">Snapshot from ' + esc(SNAP.built_at) + '</span> · ' + esc(snap.range.from) + (snap.range.to !== snap.range.from ? ' to ' + esc(snap.range.to) : '') + ' · refreshed with HQ 3x a day · the button above opens the live version';
+    return;
+  }
   if (!T) { fail('This link is missing its access key. Ask Chris for the dashboard link.'); return; }
   document.getElementById('asof').innerHTML = '<span class="spin"></span>Pulling Meta, GHL and the ledger for ' + range[0] + (range[1] !== range[0] ? ' to ' + range[1] : '') + '... 10-20 seconds';
   fetch(API + '?t=' + encodeURIComponent(T) + '&from=' + range[0] + '&to=' + range[1], { cache: 'no-store' })
@@ -137,11 +146,10 @@ function load() {
     .catch(function (e) { fail(e.message || String(e)); });
 }
 var btns = document.querySelectorAll('.ranges button[data-r]');
-for (var i = 0; i < btns.length; i++) btns[i].onclick = function () { for (var z = 0; z < btns.length; z++) btns[z].classList.remove('on'); this.classList.add('on'); range = rng(this.getAttribute('data-r')); lastOk = null; load(); };
-document.getElementById('go').onclick = function () { var f = document.getElementById('df').value, t = document.getElementById('dt').value; if (!f) return; for (var z = 0; z < btns.length; z++) btns[z].classList.remove('on'); range = [f, t || f]; lastOk = null; load(); };
+for (var i = 0; i < btns.length; i++) btns[i].onclick = function () { for (var z = 0; z < btns.length; z++) btns[z].classList.remove('on'); this.classList.add('on'); curKey = this.getAttribute('data-r'); range = rng(curKey); lastOk = null; load(); };
+document.getElementById('go').onclick = function () { var f = document.getElementById('df').value, t = document.getElementById('dt').value; if (!f) return; for (var z = 0; z < btns.length; z++) btns[z].classList.remove('on'); curKey = 'custom'; range = [f, t || f]; lastOk = null; load(); };
 load();
-setInterval(load, 300000);
-setInterval(tick, 5000);
+if (!SNAP) { setInterval(load, 300000); setInterval(tick, 5000); }
 </script>
 </body>
 </html>
