@@ -100,7 +100,7 @@ function render(m) {
   out += '<section><h2>Sent, not signed (last 45 days)</h2>' + (uns.length ? table([{ t: 'Client' }, { t: 'Type' }, { t: 'Contract', r: 1 }, { t: 'Status' }, { t: 'Age', r: 1 }], uns) : '<div class="empty">No open agreements.</div>') + '</section>';
 
   document.getElementById('app').innerHTML = out;
-  document.getElementById('foot').textContent = m.rows.length + ' deals credited. Payouts are recorded by Chris.' + (m.lastPayout ? ' Last payout ' + m.lastPayout.paid_on + ' ' + money(m.lastPayout.amount) + '.' : '') + ' New deals pay 10% of cash collected. Upsells pay 5% of collected minus supplier cost (5% to the rep who sold it and 5% to the rep who originally closed the client). An upsell on your client shows here the moment it is signed. Commission on a partial payment is on what has actually been collected.';
+  document.getElementById('foot').textContent = m.rows.length + ' deals credited. Payouts are recorded by Chris.' + (m.lastPayout ? ' Last payout ' + m.lastPayout.paid_on + ' ' + money(m.lastPayout.amount) + '.' : '') + ' New deals pay 10% of cash collected. Upsells pay 5% of cash collected (5% to the rep who sold it and 5% to the rep who originally closed the client). An upsell on your client shows here the moment it is signed. Commission on a partial payment is on what has actually been collected.';
   lastOk = new Date();
   tick();
 }
