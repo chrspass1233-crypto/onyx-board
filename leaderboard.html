@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Social Onyx Leaderboard</title>
+<style>
+:root{--bg:#0b0f14;--card:#131a23;--line:#1f2a37;--tx:#e6edf3;--dim:#8b98a5;--green:#3fb950;--amber:#d29922;--red:#f85149;--blue:#58a6ff;--gold:#e3b341;--silver:#c9d1d9;--bronze:#d4844a}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:24px 16px}
+.wrap{max-width:1180px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{font-size:22px;margin:0;letter-spacing:.02em}
+.asof{color:var(--dim);font-size:13px;margin-top:2px}.asof b{color:var(--green);font-weight:600}
+.ranges{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ranges button{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:14px}
+.ranges button.on{background:var(--blue);border-color:var(--blue);color:#04121f;font-weight:600}
+.ranges input{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:13px}
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+.kpi .lbl{color:var(--dim);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.kpi .val{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi.money .val{color:var(--green)}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:18px;overflow:hidden}
+section h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:0;padding:12px 14px;border-bottom:1px solid var(--line)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:1100px}
+th{color:var(--dim);font-size:11px;letter-spacing:.1em;text-transform:uppercase;text-align:right;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+th.l{text-align:left}
+td{padding:13px 12px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.l{text-align:left}
+tr:last-child td{border-bottom:none}
+.rank{display:inline-flex;width:28px;height:28px;border-radius:50%;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:#1d2b3a;color:var(--dim)}
+.rank.g{background:var(--gold);color:#1a1300}.rank.s{background:var(--silver);color:#111}.rank.b{background:var(--bronze);color:#1a0d00}
+.name{font-weight:700;font-size:16px}
+.comm{color:var(--green);font-weight:700;font-size:17px}
+.dim{color:var(--dim)}.amber{color:var(--amber)}.red{color:var(--red)}.good{color:var(--green)}
+.bar{display:flex;gap:18px;flex-wrap:wrap;padding:12px 14px;color:var(--dim);font-size:12px;letter-spacing:.08em;text-transform:uppercase;border-top:1px solid var(--line)}
+.bar b{color:var(--tx);font-size:14px;letter-spacing:0}
+.empty{color:var(--dim);padding:16px;font-size:14px}
+.foot{color:var(--dim);font-size:12px;margin-top:8px;line-height:1.6}
+.err{background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.4);border-radius:10px;padding:14px}
+.warn{background:rgba(210,153,34,.12);border:1px solid rgba(210,153,34,.4);border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>SOCIAL ONYX &middot; SALES LEADERBOARD</h1><div class="asof" id="asof"><span class="spin"></span>Pulling live numbers...</div></div>
+    <div class="ranges" id="ranges">
+      <button data-r="today">Today</button><button data-r="week" class="on">This week</button><button data-r="month">This month</button><button data-r="all">All time</button>
+      <input type="date" id="df"><input type="date" id="dt"><button id="go">Go</button>
+    </div>
+  </div>
+  <div id="app"></div>
+  <div class="foot" id="foot"></div>
+</div>
+<script>
+var API = 'https://rtbatvkghjnuwmgienqv.supabase.co/functions/v1/socialonyx-leaderboard';
+var q = new URLSearchParams(location.search);
+var T = q.get('t') || '';
+var range = 'week', from = '', to = '', lastOk = null, timer = null;
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function money(n) { return '$' + Math.round(Number(n) || 0).toLocaleString('en-US'); }
+function money2(n) { return n == null ? '<span class="dim">-</span>' : '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function pct(n) { return n == null ? '<span class="dim">-</span>' : n + '%'; }
+function mins(sec) { sec = Math.round(sec || 0); var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; return (h ? h + 'h ' : '') + m + 'm ' + (s < 10 ? '0' : '') + s + 's'; }
+function kpi(lbl, val, cls) { return '<div class="kpi ' + (cls || '') + '"><div class="lbl">' + esc(lbl) + '</div><div class="val">' + val + '</div></div>'; }
+function label(r) { return r.range === 'today' ? 'today' : r.range === 'week' ? 'this week' : r.range === 'month' ? 'this month' : r.range === 'all' ? 'all time' : r.from + ' to ' + r.to; }
+
+function render(m) {
+  var t = m.team;
+  var out = '';
+  if (m.warn && m.warn.length) out += '<div class="warn">Some sources did not answer, numbers may be incomplete: ' + esc(m.warn.join(' | ')) + '</div>';
+  out += '<div class="strip">' + kpi('Commission paid out ' + label(m), money(t.commission), 'money') + kpi('Cash collected', money(t.cash), 'money') + kpi('Closes', t.closes + ' / ' + money(t.closed_value)) + kpi('Dials', t.dials) + kpi('Booked calls', t.booked) + kpi('Show rate', pct(t.show_pct)) + kpi('Close rate', pct(t.close_pct)) + '</div>';
+  var rows = m.rows.map(function (r, i) {
+    var rk = i === 0 ? 'g' : i === 1 ? 's' : i === 2 ? 'b' : '';
+    var booked = r.booked ? r.booked + ' <span class="dim">(' + r.held + ' held' + (r.noshow ? ', ' + r.noshow + ' no-show' : '') + (r.cancelled ? ', ' + r.cancelled + ' cancelled' : '') + (r.norecord ? ', <span class="amber">' + r.norecord + ' no record</span>' : '') + ')</span>' : '<span class="dim">0</span>';
+    return '<tr>'
+      + '<td class="l"><span class="rank ' + rk + '">' + (i + 1) + '</span></td>'
+      + '<td class="l"><div class="name">' + esc(r.name) + '</div>' + (r.on_roster ? '' : '<div class="dim" style="font-size:12px">not on roster</div>') + '</td>'
+      + '<td class="comm">' + money(r.commission) + '</td>'
+      + '<td>' + money(r.cash) + '</td>'
+      + '<td>' + r.closes + (r.closes ? ' <span class="dim">' + money(r.closed_value) + '</span>' : '') + '</td>'
+      + '<td>' + r.sent + '</td>'
+      + '<td>' + r.dials + ' <span class="dim">(' + r.connects + ' connected)</span></td>'
+      + '<td>' + mins(r.talk_sec) + '</td>'
+      + '<td>' + r.people + '</td>'
+      + '<td>' + booked + '</td>'
+      + '<td>' + r.appts_set + '</td>'
+      + '<td>' + r.leads_assigned + '</td>'
+      + '<td>' + pct(r.show_pct) + '</td>'
+      + '<td>' + pct(r.close_pct) + '</td>'
+      + '<td>' + money2(r.comm_per_lead) + '</td>'
+      + '<td>' + money2(r.comm_per_booked) + '</td>'
+      + '</tr>';
+  });
+  out += '<section><h2>Reps &middot; ranked by commission earned &middot; ' + esc(label(m)) + '</h2>'
+    + (rows.length ? '<div class="scroll"><table><thead><tr><th class="l">#</th><th class="l">Rep</th><th>Commission (USD)</th><th>Cash collected</th><th>Closes</th><th>Sent</th><th>Dials</th><th>Talk time</th><th>People dialed</th><th>Booked calls</th><th>Appts set</th><th>Leads assigned</th><th>Show</th><th>Close</th><th>Comm / lead</th><th>Comm / booked</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div>' : '<div class="empty">Nobody on the roster yet.</div>')
+    + '<div class="bar"><span>Reps <b>' + t.reps + '</b></span><span>Closes <b>' + t.closes + '</b></span><span>Appts set <b>' + t.appts_set + '</b></span><span>Leads assigned <b>' + t.leads_assigned + '</b></span><span>Dials <b>' + t.dials + '</b></span><span>Talk <b>' + mins(t.talk_sec) + '</b></span><span>Show <b>' + (t.show_pct == null ? '-' : t.show_pct + '%') + '</b></span><span>Close <b>' + (t.close_pct == null ? '-' : t.close_pct + '%') + '</b></span></div></section>';
+  document.getElementById('app').innerHTML = out;
+  document.getElementById('foot').innerHTML = 'USD. New deals pay 10% of cash collected, upsells pay 5% to the rep who sold it and 5% to the client\'s original closer. Commission and cash land on the day the money arrives. Closes = agreements signed in the range. Dials, connects (30 seconds or more), talk time and people dialed come from the GHL call log, so calls placed outside GHL never count. Booked calls = appointments whose slot fell in the range: held means a connected GHL call with that person on the day or the appointment marked showed; no record means nothing happened in GHL. Show rate = held over booked minus cancelled. Close rate = closes over booked minus cancelled. Appts set = bookings created in the range. Leads assigned = GHL contacts assigned to the rep and created in the range.';
+  lastOk = new Date(); tick();
+}
+function tick() { if (!lastOk) return; var s = Math.round((Date.now() - lastOk.getTime()) / 1000); document.getElementById('asof').innerHTML = '<b>LIVE</b> &middot; updated ' + (s < 5 ? 'just now' : s < 60 ? s + 's ago' : Math.round(s / 60) + ' min ago') + ' &middot; refreshes every 2 minutes'; }
+function fail(msg) { if (lastOk) { document.getElementById('asof').innerHTML = '<span class="amber">Could not refresh (' + esc(msg) + '). Showing numbers from ' + lastOk.toLocaleTimeString() + '.</span>'; return; } document.getElementById('asof').textContent = ''; document.getElementById('app').innerHTML = '<div class="err">' + esc(msg) + '</div>'; }
+function load() {
+  if (!T) { fail('This link is missing its access key. Ask Chris for the leaderboard link.'); return; }
+  var u = API + '?t=' + encodeURIComponent(T) + '&json=1' + (from && to ? '&from=' + from + '&to=' + to : '&range=' + range);
+  document.getElementById('asof').innerHTML = '<span class="spin"></span>Pulling live numbers...';
+  fetch(u, { cache: 'no-store' }).then(function (r) { if (r.status === 404) throw new Error('This link is not valid. Ask Chris for the leaderboard link.'); if (!r.ok) throw new Error('server ' + r.status); return r.json(); }).then(render).catch(function (e) { fail(e.message || String(e)); });
+}
+var btns = document.querySelectorAll('.ranges button[data-r]');
+for (var i = 0; i < btns.length; i++) btns[i].onclick = function () { for (var z = 0; z < btns.length; z++) btns[z].classList.remove('on'); this.classList.add('on'); range = this.getAttribute('data-r'); from = to = ''; load(); };
+document.getElementById('go').onclick = function () { var f = document.getElementById('df').value, t2 = document.getElementById('dt').value; if (!f || !t2) return; for (var z = 0; z < btns.length; z++) btns[z].classList.remove('on'); from = f; to = t2; load(); };
+load();
+setInterval(load, 120000);
+setInterval(tick, 5000);
+</script>
+</body>
+</html>
