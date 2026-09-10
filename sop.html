@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Social Onyx SOP Library</title>
+<meta name="robots" content="noindex">
+<style>
+:root{--bg:#0b0f14;--card:#131a23;--line:#1f2a37;--tx:#e6edf3;--dim:#8b98a5;--green:#3fb950;--amber:#d29922;--red:#f85149;--blue:#58a6ff;--pill:#1d2b3a}
+*{box-sizing:border-box;margin:0;padding:0}
+html{color-scheme:dark}
+body{background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh}
+a{color:var(--blue)}
+header{display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+header h1{font-size:16px;letter-spacing:.02em;white-space:nowrap}
+header .who{color:var(--dim);font-size:13px}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+nav button{background:transparent;color:var(--dim);border:1px solid transparent;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:14px}
+nav button.on{background:var(--pill);color:var(--tx);border-color:var(--line)}
+main{max-width:1180px;margin:0 auto;padding:18px}
+.search{display:flex;gap:10px;margin-bottom:18px}
+.search input{flex:1;background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-size:16px}
+.search input:focus{outline:2px solid var(--blue);outline-offset:1px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card h2{font-size:16px;margin-bottom:4px}
+.card .sub{color:var(--dim);font-size:13px}
+.bar{height:6px;background:var(--line);border-radius:3px;margin:12px 0 8px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--green);border-radius:3px}
+.btn{background:var(--pill);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:14px}
+.btn.primary{background:var(--blue);color:#04121f;border-color:var(--blue);font-weight:600}
+.btn:focus-visible,nav button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.tag{display:inline-block;background:var(--pill);color:var(--dim);border-radius:6px;padding:1px 8px;font-size:12px;margin-right:4px}
+.tag.tpl{color:var(--amber)}
+section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+section h3{font-size:14px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:10px}
+.lesson{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.lesson:last-child{border-bottom:0}
+.lesson input{width:18px;height:18px;accent-color:var(--green);cursor:pointer;flex:none}
+.lesson a,.lesson span.t{flex:1;color:var(--tx);text-decoration:none;cursor:pointer}
+.lesson a:hover{color:var(--blue)}
+.lesson .min{color:var(--dim);font-size:12px;white-space:nowrap}
+.lesson.done a{color:var(--dim);text-decoration:line-through}
+.two{display:grid;grid-template-columns:280px 1fr;gap:16px}
+@media(max-width:820px){.two{grid-template-columns:1fr}}
+.rail{position:sticky;top:70px;align-self:start;max-height:calc(100vh - 90px);overflow:auto}
+.rail .mod{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.4px;margin:12px 0 4px}
+.rail .l{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:14px}
+.rail .l.on{background:var(--pill)}
+.rail .l .dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);flex:none}
+.rail .l.done .dot{background:var(--green);border-color:var(--green)}
+.doc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px 26px;max-width:820px}
+.doc h1{font-size:24px;margin-bottom:6px}
+.doc h2{font-size:18px;margin:22px 0 8px;padding-top:8px;border-top:1px solid var(--line)}
+.doc h3{font-size:15px;margin:16px 0 6px}
+.doc p{margin:8px 0;max-width:70ch}
+.doc ul,.doc ol{margin:8px 0 8px 22px;max-width:70ch}
+.doc li{margin:4px 0}
+.doc blockquote{border-left:3px solid var(--blue);padding:4px 12px;color:var(--dim);margin:10px 0}
+.doc table{border-collapse:collapse;margin:10px 0;font-size:14px}
+.doc th,.doc td{border:1px solid var(--line);padding:6px 10px;text-align:left}
+.doc code{background:var(--pill);padding:1px 5px;border-radius:4px;font-size:13px}
+.doc pre{background:var(--pill);padding:12px;border-radius:8px;overflow:auto;font-size:13px}
+.doc .meta{color:var(--dim);font-size:13px;margin-bottom:12px}
+.docbar{display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap}
+table.dir{width:100%;border-collapse:collapse;font-size:14px}
+table.dir th{color:var(--dim);font-size:11px;text-transform:uppercase;text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+table.dir td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+table.dir tr:hover td{background:#161d27}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.filters button{background:transparent;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:4px 12px;cursor:pointer;font-size:13px}
+.filters button.on{background:var(--pill);color:var(--tx)}
+.ck{display:grid;grid-template-columns:110px 1fr 130px 60px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.ck:last-child{border-bottom:0}
+.ck select{background:var(--pill);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+.ck .subj{color:var(--dim);font-size:12px;text-transform:uppercase}
+.ck.done .a{color:var(--dim);text-decoration:line-through}
+@media(max-width:640px){.ck{grid-template-columns:1fr;gap:4px}}
+.pts{font-size:22px;font-weight:700;color:var(--amber)}
+.empty{color:var(--dim);padding:30px;text-align:center}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:720px}
+.form input,.form select,.form textarea{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;width:100%}
+.form textarea{grid-column:1/-1;min-height:220px;font-family:Menlo,Consolas,monospace;font-size:13px}
+.form label{font-size:12px;color:var(--dim);display:block;margin-bottom:3px}
+.form .full{grid-column:1/-1}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1a2230;color:#e8b44a;padding:8px 14px;border-radius:8px;font-size:13px;z-index:9;display:none}
+.result{padding:10px 0;border-bottom:1px solid var(--line)}
+.result:last-child{border-bottom:0}
+.result b{cursor:pointer}
+.result .path{color:var(--dim);font-size:12px}
+mark{background:#4d3a00;color:#ffd866;border-radius:2px}
+#load{color:var(--dim);padding:40px;text-align:center}
+.foot{color:var(--dim);font-size:12px;margin-top:8px}
+</style></head><body>
+<header><h1>Social Onyx &middot; SOP Library</h1><span class="who" id="who"></span><nav id="nav"></nav></header>
+<main>
+<div id="load">Loading your library...</div>
+<div id="app" style="display:none">
+<div class="search"><input id="q" type="search" placeholder="Ask anything: how do I send the agreement, what is the price floor, what happens after a no-show..." autocomplete="off"></div>
+<div id="view"></div>
+</div>
+</main>
+<div class="toast" id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script>
+var API='https://rtbatvkghjnuwmgienqv.supabase.co/functions/v1/sop-library';
+var T=new URLSearchParams(location.search).get('t')||'';
+var D=null, route={page:'home'};
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function toast(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(function(){t.style.display='none'},2500);}
+function post(body){return fetch(API+'?t='+encodeURIComponent(T),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json()});}
+function load(){
+  if(!T){document.getElementById('load').textContent='This page needs your personal link. Ask Chris for it.';return;}
+  return fetch(API+'?t='+encodeURIComponent(T)+'&json=1',{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){
+    if(!j.ok){document.getElementById('load').textContent=j.error==='unknown or inactive link'?'This link is not active. Ask Chris for a new one.':('Could not load: '+(j.error||'unknown'));return;}
+    D=j; document.getElementById('who').textContent=j.member.name+' \u00b7 '+j.member.role_name;
+    document.getElementById('load').style.display='none';document.getElementById('app').style.display='block';
+    nav(); render();
+  }).catch(function(e){document.getElementById('load').textContent='Could not reach the library: '+e;});
+}
+function nav(){
+  var pages=[['home','Bootcamps'],['dir','SOP Directory']];
+  if(D.member.is_admin){pages.push(['team','Team and Roles']);pages.push(['vault','CEO Vault']);pages.push(['add','Add SOP']);}
+  document.getElementById('nav').innerHTML=pages.map(function(p){return '<button data-p="'+p[0]+'" class="'+(route.page===p[0]?'on':'')+'">'+p[1]+'</button>'}).join('');
+  [].forEach.call(document.querySelectorAll('#nav button'),function(b){b.onclick=function(){route={page:b.getAttribute('data-p')};document.getElementById('q').value='';nav();render();window.scrollTo(0,0);}});
+}
+function itemById(id){for(var i=0;i<D.items.length;i++)if(D.items[i].id===id)return D.items[i];return null;}
+function bootcampById(id){for(var i=0;i<D.bootcamps.length;i++)if(D.bootcamps[i].id===id)return D.bootcamps[i];return null;}
+function render(){
+  var v=document.getElementById('view');
+  if(route.page==='home')v.innerHTML=home();
+  else if(route.page==='bootcamp')v.innerHTML=bootcamp(route.id,route.lesson);
+  else if(route.page==='dir')v.innerHTML=directory(false);
+  else if(route.page==='vault')v.innerHTML=directory(true);
+  else if(route.page==='doc')v.innerHTML=doc(route.id);
+  else if(route.page==='team')v.innerHTML=team();
+  else if(route.page==='add')v.innerHTML=addForm();
+  else if(route.page==='search')v.innerHTML=search(route.q);
+  wire();
+}
+function home(){
+  var cards=D.bootcamps.map(function(b){var pct=b.total?Math.round(100*b.finished/b.total):0;
+    return '<div class="card"><h2>'+esc(b.name)+(b.template?' <span class="tag tpl">template</span>':'')+'</h2><div class="sub">'+esc(b.description||'')+'</div>'+
+    '<div class="bar"><i style="width:'+pct+'%"></i></div><div class="sub">'+b.finished+' of '+b.total+' lessons \u00b7 '+pct+'% complete'+(b.checklist.length?' \u00b7 checklist '+b.points+'/'+b.points_total+' pts':'')+'</div>'+
+    '<div style="margin-top:12px"><button class="btn primary" data-open="'+b.id+'">'+(b.finished?'Continue':'Start')+'</button></div></div>';}).join('');
+  return '<div class="grid">'+cards+'</div><div class="foot">Progress saves on its own when you tick a lesson. Use the search box above to find any SOP by what you are trying to do.</div>';
+}
+function bootcamp(id,lessonId){
+  var b=bootcampById(id); if(!b)return '<div class="empty">Not found.</div>';
+  var current=null; b.modules.forEach(function(m){m.lessons.forEach(function(l){if(l.id===lessonId)current=l;});});
+  if(!current&&!lessonId){for(var i=0;i<b.modules.length&&!current;i++)if(b.modules[i].lessons.length)current=b.modules[i].lessons[0];}
+  var rail='<div class="rail card"><div style="font-weight:600">'+esc(b.name)+'</div><div class="sub">'+b.finished+' of '+b.total+' done</div><div class="bar"><i style="width:'+(b.total?Math.round(100*b.finished/b.total):0)+'%"></i></div>';
+  b.modules.forEach(function(m){rail+='<div class="mod">'+esc(m.title)+'</div>';m.lessons.forEach(function(l){rail+='<div class="l '+(l.done?'done':'')+' '+(current&&l.id===current.id?'on':'')+'" data-go="'+b.id+'|'+l.id+'"><span class="dot"></span><span>'+esc(l.title)+'</span></div>';});});
+  if(b.checklist.length)rail+='<div class="mod">30-day ramp</div><div class="l '+(lessonId==='checklist'?'on':'')+'" data-go="'+b.id+'|checklist"><span class="dot" style="border-color:var(--amber)"></span><span>Checklist \u00b7 '+b.points+'/'+b.points_total+' pts</span></div>';
+  rail+='<div style="margin-top:14px"><button class="btn" data-home="1">All bootcamps</button></div></div>';
+  var body;
+  if(lessonId==='checklist')body=checklist(b);
+  else if(current){var it=current.item_id?itemById(current.item_id):null;
+    body='<div class="doc">'+(it?docBody(it):'<h1>'+esc(current.title)+'</h1><p class="meta">Template lesson. Not written yet.</p><p>This slot is reserved. The person who owns this role writes it using the SOP creation method (brain dump first, then let the AI ask its questions).</p>'+(current.link?'<p><a href="'+esc(current.link)+'" target="_blank" rel="noopener">Open the linked resource</a></p>':''))+
+      '<div class="docbar"><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="lesson-done" data-l="'+current.id+'" '+(current.done?'checked':'')+' style="width:18px;height:18px;accent-color:var(--green)"> Mark this lesson done</label>'+nextBtn(b,current)+'</div></div>';}
+  else body='<div class="empty">No lessons yet.</div>';
+  return '<div class="two">'+rail+'<div>'+body+'</div></div>';
+}
+function nextBtn(b,current){var all=[];b.modules.forEach(function(m){m.lessons.forEach(function(l){all.push(l)})});var i=all.indexOf(current);if(i>=0&&i<all.length-1)return '<button class="btn" data-go="'+b.id+'|'+all[i+1].id+'">Next lesson</button>';if(b.checklist.length)return '<button class="btn" data-go="'+b.id+'|checklist">Open the 30-day checklist</button>';return '';}
+function checklist(b){
+  var rows=b.checklist.map(function(c){return '<div class="ck '+(c.status==='done'?'done':'')+'"><span class="subj">'+esc(c.subject)+'</span><span class="a">'+esc(c.assignment)+(c.link?' <a href="'+esc(c.link)+'" target="_blank" rel="noopener">link</a>':'')+'</span><span><select class="ck-status" data-c="'+c.id+'"><option value="not_started" '+(c.status==='not_started'?'selected':'')+'>Not started</option><option value="in_progress" '+(c.status==='in_progress'?'selected':'')+'>In progress</option><option value="done" '+(c.status==='done'?'selected':'')+'>Done</option></select> <span class="sub">'+esc(c.window_label||'')+'</span></span><span class="sub" style="text-align:right">'+c.points+' pt'+(c.points===1?'':'s')+'</span></div>';}).join('');
+  return '<div class="doc"><h1>30-day ramp checklist</h1><p class="meta">Collect every point and you are ramped. Chris signs off the check points.</p><div class="pts">'+b.points+' / '+b.points_total+' points</div><div style="margin-top:12px">'+rows+'</div></div>';
+}
+function docBody(it){
+  var html=window.marked?marked.parse(it.body_md||'_This SOP has no body yet. Use the link below if there is one._'):esc(it.body_md||'');
+  var meta=[it.position?'For: '+esc(it.position):'',it.department?'Department: '+esc(it.department):'',(it.software&&it.software.length)?'Software: '+esc(it.software.join(', ')):''].filter(Boolean).join(' \u00b7 ');
+  return '<h1>'+esc(it.title)+'</h1><div class="meta">'+meta+(it.updated_at?' \u00b7 updated '+esc(String(it.updated_at).slice(0,10)):'')+'</div>'+html+(it.link?'<p><a href="'+esc(it.link)+'" target="_blank" rel="noopener">Open the source document ('+esc(it.link_type||'link')+')</a></p>':'');
+}
+function doc(id){var it=itemById(id);if(!it)return '<div class="empty">Not found.</div>';return '<div class="doc">'+docBody(it)+'<div class="docbar"><button class="btn" data-back="1">Back</button>'+(D.member.is_admin?'<button class="btn" data-edit="'+it.id+'">Edit</button>':'')+'</div></div>';}
+var dirFilter='all';
+function directory(vaultOnly){
+  var items=D.items.filter(function(i){return vaultOnly?i.visibility==='ceo':i.visibility!=='ceo'});
+  var depts=[];items.forEach(function(i){if(depts.indexOf(i.department)<0)depts.push(i.department)});
+  var f='<div class="filters"><button class="'+(dirFilter==='all'?'on':'')+'" data-f="all">All ('+items.length+')</button>'+depts.map(function(d){return '<button class="'+(dirFilter===d?'on':'')+'" data-f="'+esc(d)+'">'+esc(d)+' ('+items.filter(function(i){return i.department===d}).length+')</button>'}).join('')+'</div>';
+  var rows=items.filter(function(i){return dirFilter==='all'||i.department===dirFilter}).map(function(i){return '<tr><td><span class="tag">'+esc(i.position||'')+'</span></td><td><b style="cursor:pointer" data-doc="'+i.id+'">'+esc(i.title)+'</b><div class="sub">'+esc(i.summary||'')+'</div></td><td>'+(i.link?'<a href="'+esc(i.link)+'" target="_blank" rel="noopener">'+esc(i.link_type||'link')+'</a>':'<span class="sub">in app</span>')+'</td><td class="sub">'+esc((i.software||[]).join(', '))+'</td><td class="sub">'+esc(i.department)+'</td></tr>'}).join('');
+  return '<section><h3>'+(vaultOnly?'CEO vault (only you can see these)':'Every SOP you can see')+'</h3>'+f+'<div style="overflow-x:auto"><table class="dir"><tr><th>Position</th><th>SOP</th><th>Link</th><th>Software</th><th>Dept</th></tr>'+(rows||'<tr><td colspan="5" class="empty">Nothing here yet.</td></tr>')+'</table></div></section>';
+}
+function search(q){
+  var terms=q.toLowerCase().split(/\s+/).filter(function(x){return x.length>1});
+  if(!terms.length)return home();
+  function score(text){text=(text||'').toLowerCase();var s=0;terms.forEach(function(t){var n=text.split(t).length-1;s+=n;});return s;}
+  var hits=[];
+  D.items.forEach(function(i){var s=score(i.title)*6+score(i.summary)*3+score(i.body_md);if(s)hits.push({s:s,type:'sop',id:i.id,title:i.title,path:i.department+' \u00b7 '+(i.position||''),snip:snippet(i.body_md||i.summary||'',terms)});});
+  D.bootcamps.forEach(function(b){b.modules.forEach(function(m){m.lessons.forEach(function(l){var s=score(l.title)*6;if(s)hits.push({s:s,type:'lesson',b:b.id,id:l.id,title:l.title,path:b.name+' \u00b7 '+m.title,snip:''});});});});
+  hits.sort(function(a,b){return b.s-a.s});
+  var html=hits.slice(0,25).map(function(h){return '<div class="result"><b '+(h.type==='sop'?'data-doc="'+h.id+'"':'data-go="'+h.b+'|'+h.id+'"')+'>'+esc(h.title)+'</b> <span class="tag">'+(h.type==='sop'?'SOP':'lesson')+'</span><div class="path">'+esc(h.path)+'</div>'+(h.snip?'<div class="sub">'+h.snip+'</div>':'')+'</div>'}).join('');
+  return '<section><h3>'+hits.length+' result'+(hits.length===1?'':'s')+' for "'+esc(q)+'"</h3>'+(html||'<div class="empty">Nothing matched. Try different words, or ask Chris and it becomes an SOP.</div>')+'</section>';
+}
+function snippet(text,terms){var t=text.replace(/[#*>_`]/g,'');var lower=t.toLowerCase();var pos=-1;for(var i=0;i<terms.length;i++){pos=lower.indexOf(terms[i]);if(pos>=0)break;}if(pos<0)return esc(t.slice(0,160));var start=Math.max(0,pos-70);var s=esc(t.slice(start,start+200));terms.forEach(function(term){s=s.replace(new RegExp('('+term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig'),'<mark>$1</mark>');});return (start?'...':'')+s+'...';}
+function team(){
+  var roles=D.roles.map(function(r){return '<tr><td>'+esc(r.icon)+' <b>'+esc(r.name)+'</b>'+(r.template?' <span class="tag tpl">template</span>':'')+'</td><td class="sub">'+esc(r.department)+'</td><td class="sub">'+esc((r.visible_departments||[]).join(', '))+'</td><td class="sub">'+(D.members||[]).filter(function(m){return m.role_id===r.id&&m.active}).length+' member(s)</td></tr>'}).join('');
+  var members=(D.members||[]).map(function(m){return '<tr><td><b>'+esc(m.name)+'</b><div class="sub">'+esc(m.email||'')+'</div></td><td class="sub">'+esc(m.role_id)+'</td><td class="sub">'+(m.last_seen_at?'seen '+esc(String(m.last_seen_at).slice(0,16).replace('T',' ')):'never opened')+'</td><td>'+(m.active?'<button class="btn" data-copy="'+esc(m.link)+'">Copy link</button> <button class="btn" data-deact="'+m.id+'">Deactivate</button>':'<span class="sub">inactive</span>')+'</td></tr>'}).join('');
+  var opts=D.roles.map(function(r){return '<option value="'+esc(r.id)+'">'+esc(r.name)+'</option>'}).join('');
+  return '<section><h3>Roles</h3><div style="overflow-x:auto"><table class="dir"><tr><th>Role</th><th>Dept</th><th>Sees SOP departments</th><th>Members</th></tr>'+roles+'</table></div></section>'+
+   '<section><h3>Invite someone</h3><div class="form"><div><label>Name</label><input id="inv-name" placeholder="Abdul Qureshi"></div><div><label>Email (optional)</label><input id="inv-email" placeholder="name@email.com"></div><div><label>Role</label><select id="inv-role">'+opts+'</select></div><div style="align-self:end"><button class="btn primary" id="inv-go">Create invite link</button></div><div class="full sub" id="inv-out"></div></div></section>'+
+   '<section><h3>Members</h3><div style="overflow-x:auto"><table class="dir"><tr><th>Person</th><th>Role</th><th>Last seen</th><th></th></tr>'+(members||'<tr><td colspan="4" class="empty">Nobody invited yet.</td></tr>')+'</table></div><div class="foot">Each link is that person\'s login. Send it privately. Deactivate stops the link working.</div></section>';
+}
+function addForm(edit){
+  var it=edit?itemById(edit):null;
+  var depts=['company','sales','client','ops','marketing','ceo'];
+  return '<section><h3>'+(it?'Edit SOP':'Add an SOP')+'</h3><div class="form">'+
+   '<div><label>Title</label><input id="f-title" value="'+esc(it?it.title:'')+'"></div>'+
+   '<div><label>Position (who it is for)</label><input id="f-pos" value="'+esc(it?it.position:'')+'" placeholder="Sales Rep"></div>'+
+   '<div><label>Department</label><select id="f-dept">'+depts.map(function(d){return '<option '+(it&&it.department===d?'selected':'')+'>'+d+'</option>'}).join('')+'</select></div>'+
+   '<div><label>Software (comma separated)</label><input id="f-soft" value="'+esc(it?(it.software||[]).join(', '):'')+'" placeholder="GHL, Commas"></div>'+
+   '<div class="full"><label>Summary (one line, shown in the directory and search)</label><input id="f-sum" value="'+esc(it?it.summary:'')+'"></div>'+
+   '<div class="full"><label>Link to a Google Doc, Loom or other resource (optional)</label><input id="f-link" value="'+esc(it?it.link:'')+'" placeholder="https://docs.google.com/..."></div>'+
+   '<div><label>Visibility</label><select id="f-vis"><option value="all" '+(!it||it.visibility!=='ceo'?'selected':'')+'>Everyone in the department</option><option value="ceo" '+(it&&it.visibility==='ceo'?'selected':'')+'>CEO vault (admin only)</option></select></div>'+
+   '<div><label>Sort order</label><input id="f-sort" type="number" value="'+(it?it.sort:100)+'"></div>'+
+   '<textarea id="f-body" placeholder="Write the SOP in Markdown. # Title, ## Section, - bullets, 1. steps. Use the brain dump method first: golden idea, understandings, questions a new rep would ask.">'+esc(it?it.body_md:'')+'</textarea>'+
+   '<div class="full"><button class="btn primary" id="f-save" data-id="'+esc(it?it.id:'')+'">Save SOP</button> <span class="sub" id="f-out"></span></div></div></section>';
+}
+function wire(){
+  var v=document.getElementById('view');
+  [].forEach.call(v.querySelectorAll('[data-open]'),function(b){b.onclick=function(){route={page:'bootcamp',id:b.getAttribute('data-open')};render();window.scrollTo(0,0);}});
+  [].forEach.call(v.querySelectorAll('[data-go]'),function(b){b.onclick=function(){var p=b.getAttribute('data-go').split('|');route={page:'bootcamp',id:p[0],lesson:p[1]};render();window.scrollTo(0,0);}});
+  [].forEach.call(v.querySelectorAll('[data-home]'),function(b){b.onclick=function(){route={page:'home'};nav();render();}});
+  [].forEach.call(v.querySelectorAll('[data-back]'),function(b){b.onclick=function(){route={page:'dir'};nav();render();}});
+  [].forEach.call(v.querySelectorAll('[data-doc]'),function(b){b.onclick=function(){route={page:'doc',id:b.getAttribute('data-doc')};render();window.scrollTo(0,0);}});
+  [].forEach.call(v.querySelectorAll('[data-edit]'),function(b){b.onclick=function(){route={page:'add'};document.getElementById('view').innerHTML=addForm(b.getAttribute('data-edit'));wire();}});
+  [].forEach.call(v.querySelectorAll('[data-f]'),function(b){b.onclick=function(){dirFilter=b.getAttribute('data-f');render();}});
+  [].forEach.call(v.querySelectorAll('.lesson-done'),function(c){c.onchange=function(){var id=c.getAttribute('data-l');var done=c.checked;post({action:'progress',lesson_id:id,done:done}).then(function(j){if(!j.ok){toast('Could not save: '+j.error);return;}D.bootcamps.forEach(function(b){b.modules.forEach(function(m){m.lessons.forEach(function(l){if(l.id===id)l.done=done;});});b.finished=0;b.modules.forEach(function(m){m.lessons.forEach(function(l){if(l.done)b.finished++;});});});render();toast(done?'Saved':'Unmarked');});}});
+  [].forEach.call(v.querySelectorAll('.ck-status'),function(s){s.onchange=function(){var id=s.getAttribute('data-c');var st=s.value;post({action:'checklist',item_id:id,status:st}).then(function(j){if(!j.ok){toast('Could not save: '+j.error);return;}D.bootcamps.forEach(function(b){b.checklist.forEach(function(c){if(c.id===id)c.status=st;});b.points=0;b.checklist.forEach(function(c){if(c.status==='done')b.points+=c.points;});});render();toast('Saved');});}});
+  [].forEach.call(v.querySelectorAll('[data-copy]'),function(b){b.onclick=function(){var link=b.getAttribute('data-copy');(navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(function(){toast('Link copied')},function(){prompt('Copy this link',link)});}});
+  [].forEach.call(v.querySelectorAll('[data-deact]'),function(b){b.onclick=function(){if(!confirm('Deactivate this person\'s link?'))return;post({action:'deactivate',member_id:b.getAttribute('data-deact')}).then(function(){load().then(function(){route={page:'team'};render();});});}});
+  var inv=document.getElementById('inv-go');if(inv)inv.onclick=function(){var name=document.getElementById('inv-name').value.trim();if(!name){toast('Name first');return;}post({action:'invite',name:name,email:document.getElementById('inv-email').value.trim(),role_id:document.getElementById('inv-role').value}).then(function(j){if(!j.ok){toast(j.error);return;}document.getElementById('inv-out').innerHTML='Invite link for '+esc(name)+': <code>'+esc(j.link)+'</code> <button class="btn" data-copy="'+esc(j.link)+'">Copy</button>';wire();load();});};
+  var save=document.getElementById('f-save');if(save)save.onclick=function(){var item={id:save.getAttribute('data-id')||undefined,title:document.getElementById('f-title').value.trim(),position:document.getElementById('f-pos').value.trim(),department:document.getElementById('f-dept').value,software:document.getElementById('f-soft').value,summary:document.getElementById('f-sum').value.trim(),link:document.getElementById('f-link').value.trim()||null,visibility:document.getElementById('f-vis').value,sort:Number(document.getElementById('f-sort').value)||100,body_md:document.getElementById('f-body').value};if(!item.title){toast('Title first');return;}document.getElementById('f-out').textContent='Saving...';post({action:'upsert_item',item:item}).then(function(j){if(!j.ok){document.getElementById('f-out').textContent='Error: '+j.error;return;}load().then(function(){route={page:'doc',id:j.id};nav();render();toast('Saved');});});};
+}
+document.getElementById('q').addEventListener('input',function(){var q=this.value.trim();if(!q){route={page:'home'};nav();render();return;}route={page:'search',q:q};render();});
+load();
+</script>
+</body></html>
