@@ -50,7 +50,7 @@ td{padding:8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align
    SOP Library API; this page just embeds the same Team panel and talks to both functions with the same token. */
 var HQ='https://rtbatvkghjnuwmgienqv.supabase.co/functions/v1/socialonyx-hq';
 var SOP='https://rtbatvkghjnuwmgienqv.supabase.co/functions/v1/sop-library';
-var HQ_TABS=['Team Board','PnL','Sales Mgmt','Creators & Ads','CSM Daily','Agreements','Commissions'];   // the Questions tab is artifact-only (its answers self-save there), so it is not a served tab
+var HQ_TABS=['Team Board','PnL','Sales Mgmt','Creators & Ads','CSM Daily','Agreements','Commissions','Leaderboard'];   // Questions is artifact-only (its answers self-save there), not a served tab. Leaderboard is the live floor ranking, served as a wrapper by the HQ function.
 var Q=new URLSearchParams(location.search);
 var LEGACY=Q.get('t')||'';
 function getSession(){try{return localStorage.getItem('sop_session')||''}catch(e){return ''}}
