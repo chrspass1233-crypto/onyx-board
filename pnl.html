@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Social Onyx P&amp;L</title>
+<style>/*<![CDATA[*/
+:root{--bg:#0b0f14;--card:#131a23;--line:#1f2a37;--tx:#e6edf3;--dim:#8b98a5;--green:#3fb950;--amber:#d29922;--red:#f85149;--blue:#58a6ff}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:24px 16px}
+.wrap{max-width:1100px;margin:0 auto}
+h1{font-size:22px;margin:0}
+.asof{color:var(--dim);font-size:13px;margin:4px 0 20px}
+.asof b{color:var(--green);font-weight:600}
+.strip{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 20px;flex:1;min-width:150px}
+.kpi .lbl{color:var(--dim);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.kpi .val{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .sub{color:var(--dim);font-size:12px;margin-top:2px}
+.kpi.pos .val{color:var(--green)}
+.kpi.neg .val{color:var(--red)}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:18px;overflow:hidden}
+section h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:0;padding:12px 14px;border-bottom:1px solid var(--line)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:760px}
+th{color:var(--dim);font-size:11px;letter-spacing:.1em;text-transform:uppercase;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top;font-variant-numeric:tabular-nums;white-space:nowrap}
+.r{text-align:right}
+.dim{color:var(--dim)}
+.pos{color:var(--green);font-weight:700}
+.neg{color:var(--red);font-weight:700}
+tr.tot td{border-top:2px solid var(--line);border-bottom:none;font-weight:700;background:rgba(88,166,255,.05)}
+tr.mo{cursor:pointer}
+tr.mo:hover td{background:rgba(88,166,255,.06)}
+.mon{font-weight:600}
+.tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:999px;background:rgba(210,153,34,.15);color:var(--amber);margin-left:6px;vertical-align:1px}
+.detail td{background:#0e141b;white-space:normal}
+.detail .box{display:flex;gap:26px;flex-wrap:wrap;font-size:13px}
+.detail .box>div{min-width:200px}
+.detail h4{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin:0 0 6px}
+.detail ul{margin:0;padding-left:16px;color:var(--dim)}
+.detail li{margin:2px 0}
+.chk{padding:12px 14px;border-bottom:1px solid var(--line);font-size:14px;display:flex;gap:10px;align-items:flex-start}
+.chk:last-child{border-bottom:none}
+.chk .ic{flex:0 0 16px;font-weight:700}
+.chk.ok .ic{color:var(--green)}
+.chk.warn .ic{color:var(--amber)}
+.chk.fail .ic{color:var(--red)}
+.chk.fail{background:rgba(248,81,73,.08)}
+.note{color:var(--dim);font-size:13px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.note:last-child{border-bottom:none}
+.err{background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.4);border-radius:10px;padding:14px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
+@media (max-width:520px){body{padding:16px 12px}.kpi .val{font-size:22px}}
+/*]]>*/</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Social Onyx - P&amp;L</h1>
+  <div class="asof" id="asof"><span class="spin"></span>Pulling live numbers...</div>
+  <div id="app"></div>
+</div>
+<script>//<![CDATA[
+var API = 'https://rtbatvkghjnuwmgienqv.supabase.co/functions/v1/socialonyx-pnl';
+var q = new URLSearchParams(location.search);
+var T = q.get('t') || (location.hash.match(/t=([A-Za-z0-9]+)/) || [])[1] || '';
+var expanded = {};
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function money(n){n=Number(n)||0;return (n<0?'-$':'$')+Math.abs(Math.round(n)).toLocaleString('en-US');}
+function cls(n){return Number(n)>=0?'pos':'neg';}
+function kpi(lbl,val,sub,k){return '<div class="kpi '+(k||'')+'"><div class="lbl">'+esc(lbl)+'</div><div class="val">'+val+'</div>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div>';}
+
+function detailRow(m){
+  var fx = (m.fixed_items||[]).map(function(f){return '<li>'+esc(f.label)+' '+money(f.amount)+'</li>';}).join('') || '<li>none</li>';
+  var ot = (m.other_items||[]).map(function(f){return '<li>'+esc(f.label)+' '+money(f.amount)+' <span class="dim">('+esc(f.category)+')</span></li>';}).join('') || '<li>none</li>';
+  var cash = (m.cash_rows||[]).map(function(c){return '<li>'+esc(c.day.slice(5))+' '+esc(c.name||'-')+' '+money(c.gross)+(c.estimated?' <span class="dim">(net estimated)</span>':'')+'</li>';}).join('') || '<li>none</li>';
+  return '<tr class="detail"><td colspan="10"><div class="box">'+
+    '<div><h4>Cash</h4><ul><li>'+money(m.gross)+' collected, '+money(m.fees)+' in processor fees</li><li>'+money(m.net)+' net of fees'+(m.refunds?', less '+money(m.refunds)+' refunded':'')+'</li>'+(m.estimated_net_rows?'<li>'+m.estimated_net_rows+' charge(s) with an estimated net</li>':'')+'</ul></div>'+
+    '<div><h4>Work signed this month</h4><ul><li>'+m.signed_deals+' agreements, '+money(m.signed_value)+' contracted</li><li>'+m.supplier_reviews+' reviews x $'+m.supplier_rate_display+' assumed = '+money(m.supplier)+'</li><li>Delivery margin on signed work: '+(m.delivery_margin==null?'-':m.delivery_margin+'%')+'</li></ul></div>'+
+    '<div><h4>Fixed costs booked</h4><ul>'+fx+'</ul></div>'+
+    '<div><h4>Other costs</h4><ul>'+ot+'</ul></div>'+
+    '<div><h4>Charges ('+(m.cash_rows||[]).length+')</h4><ul>'+cash+'</ul></div>'+
+    '</div></td></tr>';
+}
+
+function monthRow(m){
+  var profit = m.profit;
+  return '<tr class="mo" data-m="'+esc(m.month)+'">'+
+    '<td class="mon">'+esc(m.label)+(m.partial?'<span class="tag">TO DATE</span>':'')+'</td>'+
+    '<td class="r">'+money(m.gross)+'</td>'+
+    '<td class="r dim">'+money(m.signed_value)+'</td>'+
+    '<td class="r dim">'+money(m.ads)+'</td>'+
+    '<td class="r dim">'+money(m.commissions)+'</td>'+
+    '<td class="r dim">'+money(m.supplier)+'</td>'+
+    '<td class="r dim">'+money(m.fixed)+'</td>'+
+    '<td class="r dim">'+money(m.other)+'</td>'+
+    '<td class="r '+cls(profit)+'">'+money(profit)+'</td>'+
+    '<td class="r dim">'+(m.margin==null?'-':m.margin+'%')+'</td></tr>';
+}
+
+function render(d){
+  var cur = d.months[d.months.length-1] || null;
+  var out = '';
+  out += '<div class="strip">'+
+    kpi('Cash collected, all time', money(d.total.gross), d.total.charges+' charges since '+d.ledger_start)+
+    kpi('Profit, all time', money(d.total.profit), 'after every cost booked', cls(d.total.profit))+
+    kpi('Delivery margin', (d.total.delivery_margin==null?'-':d.total.delivery_margin+'%'), money(d.total.signed_value)+' signed, '+money(d.total.supplier)+' supplier (assumed)')+
+    (cur ? kpi(cur.label+' cash', money(cur.gross), cur.partial?('day '+cur.elapsed_days+' of '+cur.days_in_month):'full month') : '')+
+    (cur ? kpi(cur.label+' profit', money(cur.profit), cur.partial?('spread per day: '+money(cur.profit_prorated)):'full month', cls(cur.profit)) : '')+'</div>';
+
+  for (var i=0;i<d.months.length;i++) d.months[i].supplier_rate_display = d.supplier_rate;
+  var rows = d.months.map(function(m){ return monthRow(m) + (expanded[m.month] ? detailRow(m) : ''); }).join('');
+  var t = d.total;
+  rows += '<tr class="tot"><td>All time</td><td class="r">'+money(t.gross)+'</td><td class="r">'+money(t.signed_value)+'</td><td class="r">'+money(t.ads)+'</td><td class="r">'+money(t.commissions)+'</td><td class="r">'+money(t.supplier)+'</td><td class="r">'+money(t.fixed)+'</td><td class="r">'+money(t.other)+'</td><td class="r '+cls(t.profit)+'">'+money(t.profit)+'</td><td class="r dim">'+(t.margin==null?'-':t.margin+'%')+'</td></tr>';
+  out += '<section><h2>Month by month - cash basis, tap a month for the detail</h2><div class="scroll"><table><thead><tr>'+
+    '<th>Month</th><th class="r">Cash in</th><th class="r">Signed</th><th class="r">Ads</th><th class="r">Comms</th><th class="r">Supplier (est)</th><th class="r">Fixed</th><th class="r">Other</th><th class="r">Profit</th><th class="r">Margin</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div></section>';
+
+  var chk = '';
+  (d.checks.fail||[]).forEach(function(x){chk += '<div class="chk fail"><span class="ic">!</span><span>'+esc(x)+'</span></div>';});
+  (d.checks.warn||[]).forEach(function(x){chk += '<div class="chk warn"><span class="ic">~</span><span>'+esc(x)+'</span></div>';});
+  (d.checks.ok||[]).forEach(function(x){chk += '<div class="chk ok"><span class="ic">&#10003;</span><span>'+esc(x)+'</span></div>';});
+  (d.warn||[]).forEach(function(x){chk += '<div class="chk warn"><span class="ic">~</span><span>'+esc(x)+'</span></div>';});
+  var head = (d.checks.fail||[]).length ? 'Verification - something needs fixing' : ((d.checks.warn||[]).length ? 'Verification - clean, with caveats' : 'Verification - clean');
+  out += '<section><h2>'+esc(head)+'</h2>'+chk+'</section>';
+
+  out += '<section><h2>How these numbers are built</h2>'+(d.assumptions||[]).map(function(a){return '<div class="note">'+esc(a)+'</div>';}).join('')+'</section>';
+
+  document.getElementById('app').innerHTML = out;
+  document.getElementById('asof').innerHTML = '<b>LIVE</b> - built '+esc(d.now)+' Pacific, straight from the ledger. Nothing here is typed in by hand.';
+  [].forEach.call(document.querySelectorAll('tr.mo'), function(tr){
+    tr.onclick = function(){ var m = tr.getAttribute('data-m'); expanded[m] = !expanded[m]; render(d); };
+  });
+}
+
+function fail(msg){
+  document.getElementById('asof').textContent = '';
+  document.getElementById('app').innerHTML = '<div class="err">'+esc(msg)+'</div>';
+}
+
+function load(){
+  if (!T) { fail('This link is missing its access key. Ask Chris for the P&L link.'); return; }
+  fetch(API+'?t='+encodeURIComponent(T), { cache:'no-store' })
+    .then(function(r){ if (r.status===404) throw new Error('This link is not valid. Ask Chris for the P&L link.'); if(!r.ok) throw new Error('server '+r.status); return r.json(); })
+    .then(render)
+    .catch(function(e){ fail(e.message||String(e)); });
+}
+load();
+//]]></script>
+</body>
+</html>
