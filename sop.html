@@ -145,6 +145,8 @@ function signin(msg,email){
       '<div class="full"><button class="btn primary" id="rg-go">Send request</button></div><div class="full sub" id="rg-out"></div></div>'+
       '<div class="sub" style="margin-top:8px">Chris gets a text the moment you send this. When he approves you, you are texted and can sign in above. He sets your role, so pick the one you work in.</div></div></div>';
   var out=document.getElementById('si-out');
+  // the role list comes from the server so custom roles are pickable; REG_ROLES is only the fallback while it loads
+  postOpen({action:'roles_public'}).then(function(j){var s=document.getElementById('rg-role');if(!j.ok||!j.roles||!j.roles.length||!s)return;var cur=s.value;s.innerHTML=j.roles.map(function(r){return '<option value="'+esc(r.id)+'">'+esc(r.name)+'</option>'}).join('');if(j.roles.some(function(r){return r.id===cur}))s.value=cur;}).catch(function(){});
   document.getElementById('si-req').onclick=function(e){e.preventDefault();var r=document.getElementById('reg');r.style.display=r.style.display==='none'?'block':'none';if(r.style.display==='block')document.getElementById('rg-name').focus();};
   document.getElementById('rg-go').onclick=function(){
     var b=this, ro=document.getElementById('rg-out');
