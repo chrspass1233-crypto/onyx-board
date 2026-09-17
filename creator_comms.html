@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Social Onyx Creator Commissions</title>
+<style>
+:root{--bg:#0b0f14;--card:#131a23;--line:#1f2a37;--tx:#e6edf3;--dim:#8b98a5;--green:#3fb950;--amber:#d29922;--red:#f85149;--blue:#58a6ff}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:24px 16px}
+.wrap{max-width:1180px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{font-size:22px;margin:0;letter-spacing:.02em}
+.asof{color:var(--dim);font-size:13px;margin-top:2px}.asof b{color:var(--green);font-weight:600}
+.rules{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--dim);line-height:1.6}
+.rules b{color:var(--tx)}
+.gate{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600;margin-left:6px}
+.gate.closed{background:rgba(210,153,34,.15);color:var(--amber);border:1px solid rgba(210,153,34,.4)}
+.gate.open{background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.4)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-bottom:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card .who{font-size:18px;font-weight:700}
+.card .big{font-size:28px;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums;margin:4px 0 2px}
+.card .lbl{color:var(--dim);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.card .row{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--dim);margin-top:4px;font-variant-numeric:tabular-nums}
+.card .row b{color:var(--tx);font-weight:600}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:18px;overflow:hidden}
+section h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:0;padding:12px 14px;border-bottom:1px solid var(--line)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:1000px}
+th{color:var(--dim);font-size:11px;letter-spacing:.1em;text-transform:uppercase;text-align:right;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+th.l,td.l{text-align:left}
+td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+.dim{color:var(--dim)}.amber{color:var(--amber)}.red{color:var(--red)}.good{color:var(--green)}
+.tag{display:inline-block;border-radius:6px;padding:1px 7px;font-size:11px;background:#1d2b3a;color:var(--dim);margin-left:4px}
+.foot{color:var(--dim);font-size:12px;margin-top:8px;line-height:1.6}
+.err{background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.4);border-radius:10px;padding:14px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>SOCIAL ONYX &middot; CREATOR COMMISSIONS</h1><div class="asof" id="asof"><span class="spin"></span>Pulling live numbers...</div></div>
+  </div>
+  <div id="app"></div>
+  <div class="foot" id="foot"></div>
+</div>
+<script>
+var API = 'https://rtbatvkghjnuwmgienqv.supabase.co/functions/v1/socialonyx-creator-comms';
+var q = new URLSearchParams(location.search);
+var T = q.get('t') || '';
+var lastOk = null;
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function money(n) { return '$' + Math.round(Number(n) || 0).toLocaleString('en-US'); }
+function money2(n) { return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+var KIND = { paid: 'paid ad', ig_bio: 'Instagram bio link', static: 'static image ad, no creator', house: 'house creative, no creator', untracked: 'lead carried no ad tag', template_bug: 'Meta {{ad.name}} template bug', not_in_ghl: 'no GHL contact found', refunded: 'refunded double charge' };
+
+function render(m) {
+  var R = m.rules, out = '';
+  var basisTxt = R.basis === 'cash' ? 'cash collected, flat' : 'cash collected minus the supplier estimate (' + R.supplier_per_review + ' a review, on the reviews of the agreement the money lands on)';
+  out += '<div class="rules">Rules in force: <b>' + (Math.round(R.rate * 1000) / 10) + '%</b> of ' + esc(basisTxt) + ' on every payment from a customer whose GHL contact came in on the creator\'s ad. Instagram bio link counts as <b>' + esc(R.ig_bio_creator) + '</b>. Static image ads, house creative, untracked leads and the ad-name template bug pay nobody and are listed below so the money stays visible. Cash since ' + esc(R.from) + ', periods ' + esc(R.period) + '.'
+    + ' Payout gate: <b>' + esc(R.gate === 'profitable' ? 'once the company is profitable' : R.gate) + '</b><span class="gate ' + (R.gate_open ? 'open' : 'closed') + '">' + (R.gate_open ? 'OPEN, payable' : 'CLOSED, accruing only') + '</span>' + (R.note ? '<div style="margin-top:6px">' + esc(R.note) + '</div>' : '') + '</div>';
+  out += '<div class="cards">' + m.creators.map(function (c) {
+    return '<div class="card"><div class="who">' + esc(c.name) + '</div><div class="lbl">Accrued commission</div><div class="big">' + money2(c.accrued) + '</div>'
+      + '<div class="row"><span>Payable now</span><b class="' + (c.payable > 0 ? 'good' : 'dim') + '">' + money2(c.payable) + '</b></div>'
+      + '<div class="row"><span>Paid out</span><b>' + money2(c.paid) + '</b></div>'
+      + '<div class="row"><span>Cash from their leads</span><b>' + money(c.cash) + '</b></div>'
+      + '<div class="row"><span>Supplier estimate</span><b>' + money(c.supplier) + '</b></div>'
+      + '<div class="row"><span>Payments / customers</span><b>' + c.payments + ' / ' + c.customers + '</b></div>'
+      + '<div class="row"><span>If flat 10% of cash</span><b class="dim">' + money2(c.flat10) + '</b></div></div>';
+  }).join('') + '</div>';
+  var T0 = m.totals;
+  out += '<div class="rules">All cash considered <b>' + money(T0.cash) + '</b> across <b>' + T0.payments + '</b> payments; <b>' + money(T0.cash_with_creator) + '</b> of it traces to a creator. Accrued <b>' + money2(T0.accrued) + '</b>, paid <b>' + money2(T0.paid) + '</b>, payable now <b>' + money2(T0.payable) + '</b>.</div>';
+  if (m.no_creator.length) out += '<section><h2>Cash with no creator behind it</h2><div class="scroll"><table style="min-width:520px"><thead><tr><th class="l">Why</th><th>Payments</th><th>Cash</th></tr></thead><tbody>'
+    + m.no_creator.map(function (k) { return '<tr><td class="l">' + esc(KIND[k.source_kind] || k.source_kind) + '</td><td>' + k.payments + '</td><td>' + money(k.cash) + '</td></tr>'; }).join('') + '</tbody></table></div></section>';
+  var E = m.entries.slice().sort(function (a, b) { return (b.charged_on + b.id).localeCompare(a.charged_on + a.id); });
+  out += '<section><h2>Every payment, newest first</h2><div class="scroll"><table><thead><tr><th class="l">Paid on</th><th class="l">Customer</th><th>Cash</th><th class="l">Ad on the contact</th><th class="l">Creator</th><th>Reviews</th><th>Supplier est.</th><th>Basis</th><th>Rate</th><th>Commission</th><th class="l">Period</th><th class="l">Status</th></tr></thead><tbody>'
+    + E.map(function (e) {
+      var cr = e.creator ? '<b>' + esc(e.creator) + '</b>' + (e.source_kind === 'ig_bio' ? '<span class="tag">IG bio</span>' : '') : '<span class="dim">' + esc(KIND[e.source_kind] || e.source_kind) + '</span>';
+      return '<tr title="' + esc(e.note || '') + '"><td class="l">' + esc(e.charged_on) + '</td><td class="l"><b>' + esc(e.business || e.client || e.payer_email) + '</b><div class="dim" style="font-size:11px">' + esc(e.agreement_email) + '</div></td><td>' + money(e.collected) + '</td><td class="l">' + esc(e.ad || '-') + '</td><td class="l">' + cr + '</td><td>' + (e.reviews == null ? '<span class="dim">-</span>' : e.reviews) + '</td><td>' + money(e.supplier_cost) + '</td><td>' + money(e.basis_amount) + '</td><td>' + (e.rate ? (Math.round(e.rate * 1000) / 10) + '%' : '<span class="dim">-</span>') + '</td><td class="' + (e.commission > 0 ? 'good' : 'dim') + '">' + money2(e.commission) + '</td><td class="l">' + esc(e.period) + '</td><td class="l">' + (e.paid_at ? '<span class="good">paid</span>' : e.contested ? '<span class="amber">needs a look</span>' : e.commission > 0 ? (R.gate_open ? 'payable' : '<span class="dim">accrued</span>') : '<span class="dim">-</span>') + '</td></tr>';
+    }).join('') + '</tbody></table></div></section>';
+  document.getElementById('app').innerHTML = out;
+  document.getElementById('foot').innerHTML = 'USD. One row per payment in the Commas ledger, booked within 10 minutes of the money landing. The creator is the ad on the paying customer\'s GHL contact, read the same way the Creators &amp; Ads board reads it; when a customer has two contacts the one carrying the ad wins. Cash is matched to the customer\'s oldest open agreement first, which is what sets the reviews and the supplier estimate on the row. Hover a row for the full trace. Recomputed independently three times a day; Chris is texted if anything disagrees.';
+  lastOk = new Date(); tick();
+}
+function tick() { if (!lastOk) return; var s = Math.round((Date.now() - lastOk.getTime()) / 1000); document.getElementById('asof').innerHTML = '<b>LIVE</b> &middot; updated ' + (s < 5 ? 'just now' : s < 60 ? s + 's ago' : Math.round(s / 60) + ' min ago') + ' &middot; refreshes every 2 min'; }
+function fail(msg) { if (lastOk) { document.getElementById('asof').innerHTML = '<span class="amber">Could not refresh (' + esc(msg) + '). Showing numbers from ' + lastOk.toLocaleTimeString() + '.</span>'; return; } document.getElementById('asof').innerHTML = ''; document.getElementById('app').innerHTML = '<div class="err">' + esc(msg) + '</div>'; }
+function load() {
+  if (!T) { fail('This link is missing its access key. Ask Chris for the creator commissions link.'); return; }
+  fetch(API + '?t=' + encodeURIComponent(T) + '&json=1', { cache: 'no-store' }).then(function (r) { if (r.status === 404) throw new Error('This link is not valid. Ask Chris for the creator commissions link.'); if (!r.ok) throw new Error('server ' + r.status); return r.json(); }).then(function (m) { if (!m.ok) throw new Error(m.error || 'bad reply'); render(m); }).catch(function (e) { fail(e.message || String(e)); });
+}
+load();
+setInterval(load, 120000);
+setInterval(tick, 5000);
+</script>
+</body>
+</html>

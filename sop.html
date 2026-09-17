@@ -124,7 +124,7 @@ var T=LEGACY||getSession();
 var D=null, route={page:'home'}, edit=null, dirFilter='all';
 var DEPTS=['company','sales','client','ops','marketing','ceo'];
 /* HQ dashboard tabs (2026-09-14). Ticked per role here; the HQ function only ever sends a member the tabs their role allows. */
-var HQ_TABS=['Team Board','PnL','Sales Mgmt','Creators & Ads','CSM Daily','Agreements','Commissions','Leaderboard'];
+var HQ_TABS=['Team Board','PnL','Sales Mgmt','Creators & Ads','CSM Daily','Agreements','Commissions','Leaderboard','Creator Comms'];
 var REG_ROLES=[['sales_rep','Sales Rep'],['csm','Client Success Manager'],['creator','Creator'],['media_buyer','Media Buyer'],['ops','Fulfillment / Ops']];   // pickable at Request access; admin/CEO are granted by Chris   // Questions is artifact-only, not a served tab; Leaderboard is the live floor ranking
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(function(){t.style.display='none'},2600);}
