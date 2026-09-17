@@ -36,6 +36,10 @@ tr:last-child td{border-bottom:none}
 .tag{display:inline-block;border-radius:6px;padding:1px 7px;font-size:11px;background:#1d2b3a;color:var(--dim);margin-left:4px}
 .foot{color:var(--dim);font-size:12px;margin-top:8px;line-height:1.6}
 .err{background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.4);border-radius:10px;padding:14px}
+.empty{color:var(--dim);padding:14px;font-size:13px}
+button.pay{width:100%;background:var(--green);color:#04120a;border:0;border-radius:8px;padding:9px 12px;font:inherit;font-weight:700;cursor:pointer}
+button.pay:disabled{background:#1d2b3a;color:var(--dim);cursor:default}
+button.undo{background:transparent;color:var(--red);border:1px solid rgba(248,81,73,.5);border-radius:6px;padding:3px 9px;font:inherit;font-size:12px;cursor:pointer}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes s{to{transform:rotate(360deg)}}
 </style>
@@ -56,24 +60,30 @@ var lastOk = null;
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 function money(n) { return '$' + Math.round(Number(n) || 0).toLocaleString('en-US'); }
 function money2(n) { return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function post(b) { return fetch(API + '?t=' + encodeURIComponent(T), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }).then(function (r) { return r.json(); }); }
 var KIND = { paid: 'paid ad', ig_bio: 'Instagram bio link', static: 'static image ad, no creator', house: 'house creative, no creator', untracked: 'lead carried no ad tag', template_bug: 'Meta {{ad.name}} template bug', not_in_ghl: 'no GHL contact found', refunded: 'refunded double charge' };
 
 function render(m) {
   var R = m.rules, out = '';
   var basisTxt = R.basis === 'cash' ? 'cash collected, flat' : 'cash collected minus the supplier estimate (' + R.supplier_per_review + ' a review, on the reviews of the agreement the money lands on)';
   out += '<div class="rules">Rules in force: <b>' + (Math.round(R.rate * 1000) / 10) + '%</b> of ' + esc(basisTxt) + ' on every payment from a customer whose GHL contact came in on the creator\'s ad. Instagram bio link counts as <b>' + esc(R.ig_bio_creator) + '</b>. Static image ads, house creative, untracked leads and the ad-name template bug pay nobody and are listed below so the money stays visible. Cash since ' + esc(R.from) + ', periods ' + esc(R.period) + '.'
-    + ' Payout gate: <b>' + esc(R.gate === 'profitable' ? 'once the company is profitable' : R.gate) + '</b><span class="gate ' + (R.gate_open ? 'open' : 'closed') + '">' + (R.gate_open ? 'OPEN, payable' : 'CLOSED, accruing only') + '</span>' + (R.note ? '<div style="margin-top:6px">' + esc(R.note) + '</div>' : '') + '</div>';
+    + ' Payout policy on record: <b>' + esc(R.gate === 'profitable' ? 'once the company is profitable' : R.gate) + '</b><span class="gate ' + (R.gate_open ? 'open' : 'closed') + '">' + (R.gate_open ? 'company profitable' : 'not yet profitable') + '</span>; paying is marked from this board either way, like the sales tracker.' + (R.note ? '<div style="margin-top:6px">' + esc(R.note) + '</div>' : '') + '</div>';
   out += '<div class="cards">' + m.creators.map(function (c) {
-    return '<div class="card"><div class="who">' + esc(c.name) + '</div><div class="lbl">Accrued commission</div><div class="big">' + money2(c.accrued) + '</div>'
-      + '<div class="row"><span>Payable now</span><b class="' + (c.payable > 0 ? 'good' : 'dim') + '">' + money2(c.payable) + '</b></div>'
+    var periods = Object.keys(c.unpaid_by_period || {}).sort();
+    return '<div class="card"><div class="who">' + esc(c.name) + '</div><div class="lbl">Unpaid commission</div><div class="big">' + money2(c.unpaid) + '</div>'
+      + '<div class="row"><span>Earned to date</span><b>' + money2(c.accrued) + '</b></div>'
       + '<div class="row"><span>Paid out</span><b>' + money2(c.paid) + '</b></div>'
       + '<div class="row"><span>Cash from their leads</span><b>' + money(c.cash) + '</b></div>'
-      + '<div class="row"><span>Supplier estimate</span><b>' + money(c.supplier) + '</b></div>'
       + '<div class="row"><span>Payments / customers</span><b>' + c.payments + ' / ' + c.customers + '</b></div>'
-      + '<div class="row"><span>If flat 10% of cash</span><b class="dim">' + money2(c.flat10) + '</b></div></div>';
+      + (periods.length ? '<div class="row" style="flex-direction:column;align-items:stretch;margin-top:8px"><span class="lbl">Unpaid by period</span>' + periods.map(function (p) { return '<div class="row" style="margin:2px 0"><span>' + esc(p) + '</span><b>' + money2(c.unpaid_by_period[p]) + '</b></div>'; }).join('') + '</div>' : '')
+      + '<div style="margin-top:10px"><button class="pay" data-pay="' + esc(c.name) + '" data-amt="' + c.unpaid + '"' + (c.unpaid > 0 ? '' : ' disabled') + '>' + (c.unpaid > 0 ? 'Pay ' + money2(c.unpaid) + ' to ' + esc(c.name) : 'Nothing unpaid') + '</button></div></div>';
   }).join('') + '</div>';
   var T0 = m.totals;
-  out += '<div class="rules">All cash considered <b>' + money(T0.cash) + '</b> across <b>' + T0.payments + '</b> payments; <b>' + money(T0.cash_with_creator) + '</b> of it traces to a creator. Accrued <b>' + money2(T0.accrued) + '</b>, paid <b>' + money2(T0.paid) + '</b>, payable now <b>' + money2(T0.payable) + '</b>.</div>';
+  out += '<div class="rules">All cash considered <b>' + money(T0.cash) + '</b> across <b>' + T0.payments + '</b> payments; <b>' + money(T0.cash_with_creator) + '</b> of it traces to a creator. Earned <b>' + money2(T0.accrued) + '</b>, paid out <b>' + money2(T0.paid) + '</b>, unpaid <b>' + money2(T0.unpaid) + '</b>.</div>';
+  var PO = m.payouts || [];
+  out += '<section><h2>Payouts marked on this board</h2>' + (PO.length ? '<div class="scroll"><table style="min-width:760px"><thead><tr><th class="l">Paid on</th><th class="l">Creator</th><th>Amount</th><th>Rows</th><th class="l">Method</th><th class="l">Note</th><th class="l">By</th><th></th></tr></thead><tbody>'
+    + PO.map(function (p) { return '<tr><td class="l">' + esc(p.paid_on) + '</td><td class="l"><b>' + esc(p.creator) + '</b></td><td class="good">' + money2(p.amount) + '</td><td>' + (p.entry_ids || []).length + '</td><td class="l">' + esc(p.method) + '</td><td class="l">' + esc(p.note || '') + '</td><td class="l">' + esc(p.paid_by || '') + '</td><td><button class="undo" data-undo="' + p.id + '" data-amt="' + p.amount + '" data-who="' + esc(p.creator) + '">Undo</button></td></tr>'; }).join('')
+    + '</tbody></table></div>' : '<div class="empty">No payouts marked yet. The Pay button on a creator\'s card marks every unpaid row paid and records the payout here, exactly like PAY on the sales tracker.</div>') + '</section>';
   if (m.no_creator.length) out += '<section><h2>Cash with no creator behind it</h2><div class="scroll"><table style="min-width:520px"><thead><tr><th class="l">Why</th><th>Payments</th><th>Cash</th></tr></thead><tbody>'
     + m.no_creator.map(function (k) { return '<tr><td class="l">' + esc(KIND[k.source_kind] || k.source_kind) + '</td><td>' + k.payments + '</td><td>' + money(k.cash) + '</td></tr>'; }).join('') + '</tbody></table></div></section>';
   var E = m.entries.slice().sort(function (a, b) { return (b.charged_on + b.id).localeCompare(a.charged_on + a.id); });
@@ -83,6 +93,24 @@ function render(m) {
       return '<tr title="' + esc(e.note || '') + '"><td class="l">' + esc(e.charged_on) + '</td><td class="l"><b>' + esc(e.business || e.client || e.payer_email) + '</b><div class="dim" style="font-size:11px">' + esc(e.agreement_email) + '</div></td><td>' + money(e.collected) + '</td><td class="l">' + esc(e.ad || '-') + '</td><td class="l">' + cr + '</td><td>' + (e.reviews == null ? '<span class="dim">-</span>' : e.reviews) + '</td><td>' + money(e.supplier_cost) + '</td><td>' + money(e.basis_amount) + '</td><td>' + (e.rate ? (Math.round(e.rate * 1000) / 10) + '%' : '<span class="dim">-</span>') + '</td><td class="' + (e.commission > 0 ? 'good' : 'dim') + '">' + money2(e.commission) + '</td><td class="l">' + esc(e.period) + '</td><td class="l">' + (e.paid_at ? '<span class="good">paid</span>' : e.contested ? '<span class="amber">needs a look</span>' : e.commission > 0 ? (R.gate_open ? 'payable' : '<span class="dim">accrued</span>') : '<span class="dim">-</span>') + '</td></tr>';
     }).join('') + '</tbody></table></div></section>';
   document.getElementById('app').innerHTML = out;
+  var pays = document.querySelectorAll('button[data-pay]');
+  for (var i = 0; i < pays.length; i++) pays[i].onclick = function () {
+    var who = this.getAttribute('data-pay'), amt = Number(this.getAttribute('data-amt'));
+    if (!confirm('Mark ' + money2(amt) + ' paid to ' + who + '? Every unpaid row of theirs is marked paid and one payout is recorded. You can undo it from the payouts table.')) return;
+    var note = prompt('Note for this payout (how it was paid, period, anything):', '') || '';
+    var by = '';
+    try { by = localStorage.getItem('cc_by') || ''; } catch (e) {}
+    if (!by) { by = prompt('Your name (remembered on this device):', '') || ''; try { localStorage.setItem('cc_by', by); } catch (e) {} }
+    this.disabled = true; this.textContent = 'Marking...';
+    post({ action: 'pay', creator: who, note: note, by: by }).then(function (j) { if (!j.ok) { alert(j.error || 'could not mark the payout'); } load(); }).catch(function (e) { alert(String(e)); load(); });
+  };
+  var undos = document.querySelectorAll('button[data-undo]');
+  for (var k = 0; k < undos.length; k++) undos[k].onclick = function () {
+    var id = this.getAttribute('data-undo');
+    if (!confirm('Undo the ' + money2(Number(this.getAttribute('data-amt'))) + ' payout to ' + this.getAttribute('data-who') + '? Its rows go back to unpaid.')) return;
+    this.disabled = true;
+    post({ action: 'unpay', payout_id: Number(id) }).then(function (j) { if (!j.ok) alert(j.error || 'could not undo'); load(); }).catch(function (e) { alert(String(e)); load(); });
+  };
   document.getElementById('foot').innerHTML = 'USD. One row per payment in the Commas ledger, booked within 10 minutes of the money landing. The creator is the ad on the paying customer\'s GHL contact, read the same way the Creators &amp; Ads board reads it; when a customer has two contacts the one carrying the ad wins. Cash is matched to the customer\'s oldest open agreement first, which is what sets the reviews and the supplier estimate on the row. Hover a row for the full trace. Recomputed independently three times a day; Chris is texted if anything disagrees.';
   lastOk = new Date(); tick();
 }

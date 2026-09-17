@@ -53,7 +53,7 @@ var SOP='https://rtbatvkghjnuwmgienqv.supabase.co/functions/v1/sop-library';
 /* Roles a person may PICK when requesting access. Admin/CEO are granted by Chris, never picked; the server
    refuses them anyway. Keep in step with sop_roles. */
 var REG_ROLES=[['sales_rep','Sales Rep'],['csm','Client Success Manager'],['creator','Creator'],['media_buyer','Media Buyer'],['ops','Fulfillment / Ops']];
-var HQ_TABS=['Team Board','PnL','Sales Mgmt','Creators & Ads','CSM Daily','Agreements','Commissions','Leaderboard','Creator Comms'];   // Questions is artifact-only (its answers self-save there), not a served tab. Leaderboard is the live floor ranking, served as a wrapper by the HQ function.
+var HQ_TABS=['Team Board','PnL','Sales Mgmt','Creators & Ads','CSM Daily','Agreements','Sales Comms','Leaderboard','Creator Comms'];   // Questions is artifact-only (its answers self-save there), not a served tab. Leaderboard is the live floor ranking, served as a wrapper by the HQ function.
 var Q=new URLSearchParams(location.search);
 var LEGACY=Q.get('t')||'';
 function getSession(){try{return localStorage.getItem('sop_session')||''}catch(e){return ''}}
