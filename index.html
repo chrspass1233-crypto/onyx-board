@@ -40,6 +40,10 @@ tr.done td{opacity:.55}
 .empty{color:var(--dim);padding:14px;font-size:14px}
 .foot{color:var(--dim);font-size:13px;margin-top:6px}
 .err{background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.4);border-radius:10px;padding:14px;color:var(--tx)}
+.mp{padding:14px}.mp .g{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px 12px}.mp label{display:block;color:var(--dim);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px}
+.mp input,.mp select,.mp textarea{width:100%;background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;font-size:14px}.mp textarea{min-height:48px}
+.mp .btn{background:var(--green);color:#04120a;border:0;border-radius:8px;padding:9px 16px;font:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px}.mp .btn:disabled{opacity:.5;cursor:default}.mp .out{color:var(--dim);font-size:13px;margin-top:8px}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px}.pill.pend{background:#2b2410;color:var(--amber)}.pill.appr{background:#12301c;color:var(--green)}.pill.rej{background:#2a1416;color:var(--red)}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes s{to{transform:rotate(360deg)}}
 /*]]>*/</style>
@@ -99,10 +103,45 @@ function render(m) {
   var uns = m.unsigned.map(function (u) { return '<tr>' + td('biz', esc(u.biz)) + td('dim', esc(u.kind || '')) + td('r', money(u.total)) + td('dim', esc(u.status)) + td('r dim', u.days + 'd') + '</tr>'; });
   out += '<section><h2>Sent, not signed (last 45 days)</h2>' + (uns.length ? table([{ t: 'Client' }, { t: 'Type' }, { t: 'Contract', r: 1 }, { t: 'Status' }, { t: 'Age', r: 1 }], uns) : '<div class="empty">No open agreements.</div>') + '</section>';
 
+  // Manual payments (Chris 2026-09-17): log a payment that did not go through Commas. Pending until Chris, Jose or
+  // Romario approves it in the HQ; approved ones count like any other payment (your 10% books within 10 minutes).
+  var mrows = (m.manual || []).map(function (p) { var st = p.status === 'approved' ? '<span class="pill appr">APPROVED</span>' : p.status === 'rejected' ? '<span class="pill rej">REJECTED</span>' : '<span class="pill pend">WAITING FOR APPROVAL</span>'; return '<tr>' + td('biz', esc(p.lead_name) + (p.business ? '<div class="sub">' + esc(p.business) + '</div>' : '')) + td('r', money(p.amount)) + td('dim', esc(p.method === 'Custom' ? (p.method_detail || 'custom') : p.method)) + td('dim', esc(p.paid_on)) + td('', st + (p.status === 'rejected' && p.decision_note ? '<div class="sub">' + esc(p.decision_note) + '</div>' : '') + (p.status !== 'pending' && p.decided_by ? '<div class="sub">by ' + esc(p.decided_by) + '</div>' : '')) + '</tr>'; });
+  var copts = (m.clients || []).map(function (c) { return '<option value="' + esc(c.client || c.biz || c.email) + '">' + esc((c.biz || '') + (c.email ? ' - ' + c.email : '')) + '</option>'; }).join('');
+  var METHODS = ['Zelle', 'Cash', 'Check', 'Wire', 'Venmo', 'CashApp', 'PayPal', 'Commas link paid but not showing', 'Custom'];
+  out += '<section><h2>Log a payment that did not go through Commas</h2><div class="mp"><div class="g">'
+    + '<div><label>Who paid</label><input id="mp-lead" list="mp-clients" placeholder="Customer name" autocomplete="off"><datalist id="mp-clients">' + copts + '</datalist></div>'
+    + '<div><label>Amount</label><input id="mp-amt" inputmode="decimal" placeholder="1000"></div>'
+    + '<div><label>How they paid</label><select id="mp-method">' + METHODS.map(function (x) { return '<option>' + x + '</option>'; }).join('') + '</select></div>'
+    + '<div id="mp-custom-wrap" style="display:none"><label>Say how</label><input id="mp-custom" placeholder="e.g. Apple Cash"></div>'
+    + '<div><label>Date they paid</label><input id="mp-date" type="date"></div>'
+    + '<div><label>Reference or note (optional)</label><input id="mp-note" placeholder="confirmation #, deposit, etc."></div>'
+    + '</div><button class="btn" id="mp-go">Log this payment</button><div class="out" id="mp-out">It goes to Chris, Jose and Romario for approval by text. Once approved it counts on the customer\'s balance and your commission.</div></div>'
+    + (mrows.length ? table([{ t: 'Customer' }, { t: 'Amount', r: 1 }, { t: 'How' }, { t: 'Paid on' }, { t: 'Status' }], mrows) : '') + '</section>';
   document.getElementById('app').innerHTML = out;
+  wireManual(m);
   document.getElementById('foot').textContent = m.rows.length + ' deals credited. Payouts are recorded by Chris.' + (m.lastPayout ? ' Last payout ' + m.lastPayout.paid_on + ' ' + money(m.lastPayout.amount) + '.' : '') + ' New deals pay 10% of cash collected. Upsells pay 5% of cash collected (5% to the rep who sold it and 5% to the rep who originally closed the client). An upsell on your client shows here the moment it is signed. Commission on a partial payment is on what has actually been collected.';
   lastOk = new Date();
   tick();
+}
+
+function wireManual(m) {
+  var go = document.getElementById('mp-go'); if (!go) return;
+  var sel = document.getElementById('mp-method'), cw = document.getElementById('mp-custom-wrap');
+  sel.onchange = function () { cw.style.display = sel.value === 'Custom' ? '' : 'none'; };
+  var dt = document.getElementById('mp-date'); if (!dt.value) { var n = new Date(); dt.value = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0'); }
+  go.onclick = function () {
+    var lead = document.getElementById('mp-lead').value.trim(), out = document.getElementById('mp-out');
+    var c = (m.clients || []).filter(function (x) { return (x.client || '').toLowerCase() === lead.toLowerCase() || (x.biz || '').toLowerCase() === lead.toLowerCase(); })[0] || null;
+    var body = { action: 'manual_payment', lead_name: lead, business: c ? c.biz : '', email: c ? c.email : '', amount: document.getElementById('mp-amt').value, method: sel.value, method_detail: sel.value === 'Custom' ? document.getElementById('mp-custom').value : document.getElementById('mp-note').value, paid_on: dt.value, note: sel.value === 'Custom' ? document.getElementById('mp-note').value : '' };
+    if (!lead) { out.textContent = 'Who paid?'; return; }
+    if (!(Number(String(body.amount).replace(/[$,]/g, '')) > 0)) { out.textContent = 'Enter the amount.'; return; }
+    if (!confirm('Log ' + money(Number(String(body.amount).replace(/[$,]/g, ''))) + ' ' + (sel.value === 'Custom' ? body.method_detail : sel.value) + ' from ' + lead + ' on ' + dt.value + '? Chris, Jose and Romario get a text to approve it.')) return;
+    go.disabled = true; out.textContent = 'Logging...';
+    fetch(API + '?r=' + encodeURIComponent(T), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { go.disabled = false; if (!j.ok) { out.textContent = j.error || 'Could not log it.'; return; } out.textContent = 'Logged (#' + j.id + '). ' + (j.texted && j.texted.length ? 'Texted ' + j.texted.join(', ') + ' to approve it.' : 'Nobody could be texted, tell Chris.'); load(); })
+      .catch(function (e) { go.disabled = false; out.textContent = 'Could not log it: ' + e; });
+  };
 }
 
 function tick() {
