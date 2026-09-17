@@ -117,8 +117,15 @@ function render(m) {
     + '<div><label>Reference or note (optional)</label><input id="mp-note" placeholder="confirmation #, deposit, etc."></div>'
     + '</div><button class="btn" id="mp-go">Log this payment</button><div class="out" id="mp-out">It goes to Chris, Jose and Romario for approval by text. Once approved it counts on the customer\'s balance and your commission.</div></div>'
     + (mrows.length ? table([{ t: 'Customer' }, { t: 'Amount', r: 1 }, { t: 'How' }, { t: 'Paid on' }, { t: 'Status' }], mrows) : '') + '</section>';
+  var keep = {}, focusId = document.activeElement && document.activeElement.id && document.activeElement.id.indexOf('mp-') === 0 ? document.activeElement.id : null;
+  ['mp-lead', 'mp-amt', 'mp-method', 'mp-custom', 'mp-date', 'mp-note'].forEach(function (id) { var el = document.getElementById(id); if (el) keep[id] = el.value; });
+  var keepOut = document.getElementById('mp-out') ? document.getElementById('mp-out').textContent : '';
   document.getElementById('app').innerHTML = out;
+  Object.keys(keep).forEach(function (id) { var el = document.getElementById(id); if (el && keep[id]) el.value = keep[id]; });
+  if (keep['mp-method'] === 'Custom') { var cwv = document.getElementById('mp-custom-wrap'); if (cwv) cwv.style.display = ''; }
+  if (keepOut && (keep['mp-lead'] || keep['mp-amt'])) { var oel = document.getElementById('mp-out'); if (oel) oel.textContent = keepOut; }
   wireManual(m);
+  if (focusId) { var fe = document.getElementById(focusId); if (fe) { fe.focus(); try { fe.setSelectionRange(fe.value.length, fe.value.length); } catch (e) {} } }
   document.getElementById('foot').textContent = m.rows.length + ' deals credited. Payouts are recorded by Chris.' + (m.lastPayout ? ' Last payout ' + m.lastPayout.paid_on + ' ' + money(m.lastPayout.amount) + '.' : '') + ' New deals pay 10% of cash collected. Upsells pay 5% of cash collected (5% to the rep who sold it and 5% to the rep who originally closed the client). An upsell on your client shows here the moment it is signed. Commission on a partial payment is on what has actually been collected.';
   lastOk = new Date();
   tick();
@@ -135,12 +142,19 @@ function wireManual(m) {
     var body = { action: 'manual_payment', lead_name: lead, business: c ? c.biz : '', email: c ? c.email : '', amount: document.getElementById('mp-amt').value, method: sel.value, method_detail: sel.value === 'Custom' ? document.getElementById('mp-custom').value : document.getElementById('mp-note').value, paid_on: dt.value, note: sel.value === 'Custom' ? document.getElementById('mp-note').value : '' };
     if (!lead) { out.textContent = 'Who paid?'; return; }
     if (!(Number(String(body.amount).replace(/[$,]/g, '')) > 0)) { out.textContent = 'Enter the amount.'; return; }
-    if (!confirm('Log ' + money(Number(String(body.amount).replace(/[$,]/g, ''))) + ' ' + (sel.value === 'Custom' ? body.method_detail : sel.value) + ' from ' + lead + ' on ' + dt.value + '? Chris, Jose and Romario get a text to approve it.')) return;
+    var label = 'Log ' + money(Number(String(body.amount).replace(/[$,]/g, ''))) + ' ' + (sel.value === 'Custom' ? body.method_detail : sel.value) + ' from ' + lead + ' on ' + dt.value;
+    if (go.getAttribute('data-armed') !== body.lead_name + '|' + body.amount + '|' + dt.value) {
+      go.setAttribute('data-armed', body.lead_name + '|' + body.amount + '|' + dt.value); go.textContent = 'Tap again to confirm: ' + label;
+      out.textContent = 'Check it, then tap the button once more. Chris, Jose and Romario get a text to approve it.';
+      clearTimeout(go._arm); go._arm = setTimeout(function () { go.removeAttribute('data-armed'); go.textContent = 'Log this payment'; }, 20000);
+      return;
+    }
+    clearTimeout(go._arm); go.removeAttribute('data-armed'); go.textContent = 'Log this payment';
     go.disabled = true; out.textContent = 'Logging...';
     fetch(API + '?r=' + encodeURIComponent(T), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json(); })
       .then(function (j) { go.disabled = false; if (!j.ok) { out.textContent = j.error || 'Could not log it.'; return; } out.textContent = 'Logged (#' + j.id + '). ' + (j.texted && j.texted.length ? 'Texted ' + j.texted.join(', ') + ' to approve it.' : 'Nobody could be texted, tell Chris.'); load(); })
-      .catch(function (e) { go.disabled = false; out.textContent = 'Could not log it: ' + e; });
+      .catch(function (e) { go.disabled = false; out.textContent = 'Could not log it: ' + e + '. Screenshot this and send it to Chris.'; console.error(e); });
   };
 }
 
