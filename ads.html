@@ -94,7 +94,7 @@ function render(d) {
   var t = d.totals, all = d.client_total;
   var out = '';
   out += '<div class="grid">' +
-    kpi('Leads', all.leads, t.leads + ' from ads · ' + all.organic + ' organic' + (d.credit && d.credit.organic_creator && all.organic ? ' (credited to ' + esc(d.credit.organic_creator) + ')' : '') + (all.imports_excluded ? ' · ' + all.imports_excluded + ' imports excluded' : '')) +
+    kpi('Leads', all.leads, t.leads + ' from ads · ' + all.organic + ' organic' + (d.credit && d.credit.organic_creator && all.organic ? ' (credited to ' + esc(d.credit.organic_creator) + ')' : '') + (all.imports_excluded ? ' · ' + all.imports_excluded + ' imports excluded' : '') + (all.tests_excluded ? ' · ' + all.tests_excluded + ' test' + (all.tests_excluded > 1 ? 's' : '') + ' excluded' : '') + (all.phone_only_excluded ? ' · ' + all.phone_only_excluded + ' inbound call' + (all.phone_only_excluded > 1 ? 's' : '') + ' (no form) excluded' : '')) +
     kpi('Cost per lead', per(t.spend, t.leads), 'paid ads only') +
     kpi('Booked', t.booked, pct(t.booked, t.leads) + ' of ad leads') +
     kpi('Signed', t.signed, pct(t.signed, t.leads) + ' of ad leads · cost ' + per(t.spend, t.signed)) +
