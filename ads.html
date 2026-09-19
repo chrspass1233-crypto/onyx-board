@@ -72,7 +72,8 @@ function rng(r) { var t = laToday(); if (r === 'today') return [t, t]; if (r ===
 function kpi(l, v, s, cls) { return '<div class="kpi ' + (cls || '') + '"><div class="v">' + v + '</div><div class="l">' + esc(l) + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>'; }
 
 function funnelCols(r) {
-  return '<td>' + r.leads + '</td><td>' + per(r.spend, r.leads) + '</td>' +
+  var og = r.organic_leads || 0, adLeads = r.leads - og;
+  return '<td>' + r.leads + (og ? '<div class="meta">' + adLeads + ' ads · ' + og + ' organic</div>' : '') + '</td><td>' + per(r.spend, adLeads) + '</td>' +
     '<td>' + r.booked + '</td><td class="d">' + pct(r.booked, r.leads) + '</td><td>' + per(r.spend, r.booked) + '</td>' +
     '<td>' + (r.noshow || 0) + '</td>' +
     '<td>' + r.sent + '</td><td class="d">' + pct(r.sent, r.booked) + '</td>' +
@@ -93,7 +94,7 @@ function render(d) {
   var t = d.totals, all = d.client_total;
   var out = '';
   out += '<div class="grid">' +
-    kpi('Leads', all.leads, t.leads + ' from ads · ' + all.organic + ' organic' + (all.imports_excluded ? ' · ' + all.imports_excluded + ' imports excluded' : '')) +
+    kpi('Leads', all.leads, t.leads + ' from ads · ' + all.organic + ' organic' + (d.credit && d.credit.organic_creator && all.organic ? ' (credited to ' + esc(d.credit.organic_creator) + ')' : '') + (all.imports_excluded ? ' · ' + all.imports_excluded + ' imports excluded' : '')) +
     kpi('Cost per lead', per(t.spend, t.leads), 'paid ads only') +
     kpi('Booked', t.booked, pct(t.booked, t.leads) + ' of ad leads') +
     kpi('Signed', t.signed, pct(t.signed, t.leads) + ' of ad leads · cost ' + per(t.spend, t.signed)) +
@@ -104,12 +105,12 @@ function render(d) {
     '</div>';
 
   var cr = d.creators.map(function (r) { return '<tr><td class="l"><span class="name">' + esc(r.creator) + '</span></td>' + adCols(r) + funnelCols(r) + '</tr>'; }).join('');
-  out += '<section><h2>By creator <span>paid ads, this range</span></h2>' + (d.creators.length ? '<div class="scroll"><table><thead><tr><th class="l">Creator</th>' + AD_H + FUNNEL_H + '</tr></thead><tbody>' + cr + '<tr class="tot"><td class="l">Total</td>' + adCols(t) + funnelCols(t) + '</tr></tbody></table></div>' : '<div class="empty">No paid ads in this range.</div>') + '</section>';
+  out += '<section><h2>By creator <span>paid ads plus organic leads credited to the creator, this range · CPL is spend over ad leads only</span></h2>' + (d.creators.length ? '<div class="scroll"><table><thead><tr><th class="l">Creator</th>' + AD_H + FUNNEL_H + '</tr></thead><tbody>' + cr + '<tr class="tot"><td class="l">Total</td>' + adCols(t) + funnelCols(t) + '</tr></tbody></table></div>' : '<div class="empty">No paid ads in this range.</div>') + '</section>';
 
   var ar = d.ads.map(function (r) { return '<tr><td class="l"><span class="tag">' + esc(r.creator) + '</span><span class="name">' + esc(r.ad) + '</span><div class="meta">' + esc(r.campaign || '') + (r.adset ? ' · ' + esc(r.adset) : '') + '</div></td>' + adCols(r) + funnelCols(r) + '</tr>'; }).join('');
   out += '<section><h2>By ad <span>' + d.ads.length + ' ads · sorted by spend</span></h2>' + (d.ads.length ? '<div class="scroll"><table><thead><tr><th class="l">Ad</th>' + AD_H + FUNNEL_H + '</tr></thead><tbody>' + ar + '<tr class="tot"><td class="l">Total</td>' + adCols(t) + funnelCols(t) + '</tr></tbody></table></div>' : '<div class="empty">No ads in this range.</div>') + '</section>';
 
-  var orr = d.organic.map(function (r) { return '<tr><td class="l"><span class="name">' + esc(r.ad) + '</span></td><td>' + r.leads + '</td><td>' + r.booked + '</td><td class="d">' + pct(r.booked, r.leads) + '</td><td>' + (r.noshow || 0) + '</td><td>' + r.sent + '</td><td>' + r.signed + '</td><td class="a">' + money(r.contracted) + '</td><td>' + r.paid + '</td><td class="g">' + money(r.cash) + '</td></tr>'; }).join('');
+  var orr = d.organic.map(function (r) { return '<tr><td class="l">' + (r.creator && r.creator !== 'Organic' ? '<span class="tag">' + esc(r.creator) + '</span>' : '') + '<span class="name">' + esc(r.ad) + '</span></td><td>' + r.leads + '</td><td>' + r.booked + '</td><td class="d">' + pct(r.booked, r.leads) + '</td><td>' + (r.noshow || 0) + '</td><td>' + r.sent + '</td><td>' + r.signed + '</td><td class="a">' + money(r.contracted) + '</td><td>' + r.paid + '</td><td class="g">' + money(r.cash) + '</td></tr>'; }).join('');
   out += '<section><h2>Organic &amp; other <span>leads with no ad attached: bio links, referrals, manual adds</span></h2>' + (d.organic.length ? '<div class="scroll"><table><thead><tr><th class="l">Source</th><th>Leads</th><th>Booked</th><th>Lead→booked</th><th>No-show</th><th>Sent</th><th>Signed</th><th>Contracted</th><th>Paid</th><th>Cash</th></tr></thead><tbody>' + orr + '</tbody></table></div>' : '<div class="empty">None in this range.</div>') + '</section>';
 
   document.getElementById('app').innerHTML = out;
