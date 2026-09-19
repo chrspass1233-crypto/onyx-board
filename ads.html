@@ -23,6 +23,7 @@ h1{font-size:22px;margin:0}
 section{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:18px;overflow:hidden}
 section h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:0;padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 section h2 span{color:var(--dim);letter-spacing:0;text-transform:none;font-weight:400}
+.flt{margin-left:14px;cursor:pointer;white-space:nowrap}.flt input{vertical-align:-2px;margin-right:4px}#byad.hidenl tr.nolead{display:none}
 .scroll{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{color:var(--dim);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;text-align:right;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;background:var(--card)}
@@ -89,6 +90,7 @@ function adCols(r) {
 var FUNNEL_H = '<th>Leads</th><th>CPL</th><th>Booked</th><th>Lead→booked</th><th>Cost/booking</th><th>No-show</th><th>Sent</th><th>Booked→sent</th><th>Signed</th><th>Sent→signed</th><th>Cost/signed</th><th>Contracted</th><th>Paid</th><th>Cash</th><th>ROAS</th>';
 var AD_H = '<th>Spend</th><th>Impr</th><th>CTR</th><th>CPC</th><th>Click→lead</th><th>Hook</th><th>Hold</th><th>Avg watch</th>';
 
+function hideNoLead() { try { return localStorage.getItem('ads_hide_nolead') === '1'; } catch (e) { return false; } }
 function render(d) {
   cur = d;
   var t = d.totals, all = d.client_total;
@@ -107,13 +109,17 @@ function render(d) {
   var cr = d.creators.map(function (r) { return '<tr><td class="l"><span class="name">' + esc(r.creator) + '</span></td>' + adCols(r) + funnelCols(r) + '</tr>'; }).join('');
   out += '<section><h2>By creator <span>paid ads plus organic leads credited to the creator, this range · CPL is spend over ad leads only</span></h2>' + (d.creators.length ? '<div class="scroll"><table><thead><tr><th class="l">Creator</th>' + AD_H + FUNNEL_H + '</tr></thead><tbody>' + cr + '<tr class="tot"><td class="l">Total</td>' + adCols(t) + funnelCols(t) + '</tr></tbody></table></div>' : '<div class="empty">No paid ads in this range.</div>') + '</section>';
 
-  var ar = d.ads.map(function (r) { return '<tr><td class="l"><span class="tag">' + esc(r.creator) + '</span><span class="name">' + esc(r.ad) + '</span><div class="meta">' + esc(r.campaign || '') + (r.adset ? ' · ' + esc(r.adset) : '') + '</div></td>' + adCols(r) + funnelCols(r) + '</tr>'; }).join('');
-  out += '<section><h2>By ad <span>' + d.ads.length + ' ads · sorted by spend</span></h2>' + (d.ads.length ? '<div class="scroll"><table><thead><tr><th class="l">Ad</th>' + AD_H + FUNNEL_H + '</tr></thead><tbody>' + ar + '<tr class="tot"><td class="l">Total</td>' + adCols(t) + funnelCols(t) + '</tr></tbody></table></div>' : '<div class="empty">No ads in this range.</div>') + '</section>';
+  var ar = d.ads.map(function (r) { return '<tr' + (r.leads ? '' : ' class="nolead"') + '><td class="l"><span class="tag">' + esc(r.creator) + '</span><span class="name">' + esc(r.ad) + '</span><div class="meta">' + esc(r.campaign || '') + (r.adset ? ' · ' + esc(r.adset) : '') + '</div></td>' + adCols(r) + funnelCols(r) + '</tr>'; }).join('');
+  var noLead = d.ads.filter(function (r) { return !r.leads; }).length;
+  out += '<section id="byad"' + (hideNoLead() ? ' class="hidenl"' : '') + '><h2>By ad <span><span id="adcount"></span><label class="flt"><input type="checkbox" id="hidenl"' + (hideNoLead() ? ' checked' : '') + '> hide ads with no leads</label></span></h2>' + (d.ads.length ? '<div class="scroll"><table><thead><tr><th class="l">Ad</th>' + AD_H + FUNNEL_H + '</tr></thead><tbody>' + ar + '<tr class="tot"><td class="l">Total</td>' + adCols(t) + funnelCols(t) + '</tr></tbody></table></div>' : '<div class="empty">No ads in this range.</div>') + '</section>';
 
   var orr = d.organic.map(function (r) { return '<tr><td class="l">' + (r.creator && r.creator !== 'Organic' ? '<span class="tag">' + esc(r.creator) + '</span>' : '') + '<span class="name">' + esc(r.ad) + '</span></td><td>' + r.leads + '</td><td>' + r.booked + '</td><td class="d">' + pct(r.booked, r.leads) + '</td><td>' + (r.noshow || 0) + '</td><td>' + r.sent + '</td><td>' + r.signed + '</td><td class="a">' + money(r.contracted) + '</td><td>' + r.paid + '</td><td class="g">' + money(r.cash) + '</td></tr>'; }).join('');
   out += '<section><h2>Organic &amp; other <span>leads with no ad attached: bio links, referrals, manual adds</span></h2>' + (d.organic.length ? '<div class="scroll"><table><thead><tr><th class="l">Source</th><th>Leads</th><th>Booked</th><th>Lead→booked</th><th>No-show</th><th>Sent</th><th>Signed</th><th>Contracted</th><th>Paid</th><th>Cash</th></tr></thead><tbody>' + orr + '</tbody></table></div>' : '<div class="empty">None in this range.</div>') + '</section>';
 
   document.getElementById('app').innerHTML = out;
+  var adCount = function () { var h = hideNoLead(); document.getElementById('adcount').textContent = d.ads.length + ' ads · sorted by spend' + (h && noLead ? ' · ' + noLead + ' with no leads hidden' : ''); };
+  adCount();
+  document.getElementById('hidenl').onchange = function () { try { localStorage.setItem('ads_hide_nolead', this.checked ? '1' : '0'); } catch (e) {} document.getElementById('byad').classList.toggle('hidenl', this.checked); adCount(); };
   document.getElementById('foot').textContent = d.definitions.cohort + ' Hook rate = ' + d.definitions.hook + '. Hold rate = ' + d.definitions.hold + '. Cash = ' + d.definitions.cash + '. No-shows only count when a rep marks the appointment as no-show in GHL. Times in Los Angeles (ad account time).';
   lastOk = new Date();
   tick();
