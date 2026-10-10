@@ -39,6 +39,7 @@ tr.tot td{font-weight:700;border-top:2px solid var(--line)}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes s{to{transform:rotate(360deg)}}
 .foot{color:var(--dim);font-size:12.5px;margin-top:6px}
+.grid.top .kpi.big{grid-column:span 2}.kpi.big .v{font-size:34px}td.big{font-size:14px}tr.grp th{font-size:10px;color:var(--dim);text-align:center;border-bottom:1px solid var(--line)}tr.grp th.gc{color:var(--green)}h3.cohort{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:26px 0 10px;padding-top:16px;border-top:1px solid var(--line);font-weight:600}h3.cohort span{text-transform:none;letter-spacing:0;font-weight:400;margin-left:8px}.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:0 18px}
 @media(max-width:640px){.kpi .v{font-size:19px}}
 </style>
 </head>
@@ -47,10 +48,10 @@ tr.tot td{font-weight:700;border-top:2px solid var(--line)}
   <h1>Creators &amp; Ads</h1>
   <div class="sub" id="asof"><span class="spin"></span>Pulling Meta, GHL and the ledger... 10-20 seconds</div>
   <div class="ranges" id="ranges">
-    <button data-r="today" class="on">Today</button><button data-r="yesterday">Yesterday</button><button data-r="7">7D</button><button data-r="30">30D</button>
+    <button data-r="today" class="on">Today</button><button data-r="yesterday">Yesterday</button><button data-r="7">7D</button><button data-r="30">30D</button><button data-r="all">All time</button>
     <input type="date" id="df"><input type="date" id="dt"><button id="go">Go</button>
   </div>
-  <div id="app"></div>
+  <div class="sub" id="slow" style="display:none"></div><div id="app"></div>
   <div class="foot" id="foot"></div>
 </div>
 <script>
@@ -68,9 +69,23 @@ function x(a, b) { return b > 0 ? (a / b).toFixed(2) + 'x' : '—'; }
 function iso(d) { return d.toISOString().slice(0, 10); }
 function laToday() { var p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); return p; }
 function shift(ymd, n) { var d = new Date(ymd + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return iso(d); }
-function rng(r) { var t = laToday(); if (r === 'today') return [t, t]; if (r === 'yesterday') { var y = shift(t, -1); return [y, y]; } if (r === '7') return [shift(t, -6), t]; if (r === '30') return [shift(t, -29), t]; return [t, t]; }
+function rng(r) { var t = laToday(); if (r === 'today') return [t, t]; if (r === 'yesterday') { var y = shift(t, -1); return [y, y]; } if (r === '7') return [shift(t, -6), t]; if (r === '30') return [shift(t, -29), t]; if (r === 'all') return [ALL_FROM, t < ALL_FROM ? ALL_FROM : t]; return [t, t]; }
 
 function kpi(l, v, s, cls) { return '<div class="kpi ' + (cls || '') + '"><div class="v">' + v + '</div><div class="l">' + esc(l) + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>'; }
+// v19 PAYMENTS COLLECTED (Chris 2026-10-09: "make it payment collected"). From the ads-board feed's `closed` block:
+// money charged in the range on the day it came in, deals on the day they were signed, both credited to the creator of
+// the customer's lead whenever that lead came in. Older saved copies have no `closed`: those cells show "-".
+var Z_CLOSED = { cash_in_range: 0, paid_cash_in_range: 0, payments_in_range: 0, roas_in_range: null, signed_in_range: 0, signed_in_range_new: 0, signed_in_range_upsell: 0, contracted_in_range: 0 };
+function roas(a, b) { return b > 0 ? (a / b).toFixed(2) + 'x' : '-'; }
+// ROAS column = PAID-AD ROAS from the feed: cash from paid-ad leads / that row's spend (organic and no-lead cash have no spend)
+function closedCols(c) {
+  if (!c) return '<td class="d">-</td><td class="d">-</td><td class="d">-</td><td class="d">-</td><td class="d">-</td>';
+  return '<td class="g big">' + money(c.cash_in_range) + '</td><td>' + (c.payments_in_range || 0) + '</td><td class="g">' + (c.roas_in_range == null ? '-' : c.roas_in_range.toFixed(2) + 'x') + '</td>' +
+    '<td>' + (c.signed_in_range || 0) + (c.signed_in_range_upsell ? '<div class="meta">' + c.signed_in_range_new + ' new · ' + c.signed_in_range_upsell + ' upsell</div>' : '') + '</td><td class="a">' + money(c.contracted_in_range) + '</td>';
+}
+var CLOSED_H = '<th>Payments collected</th><th>Payments</th><th>Paid-ad ROAS</th><th>Deals closed</th><th>Signed value</th>';
+function zeroRow(name, organic) { return { key: name, ad: name, creator: name, campaign: '', adset: '', organic: !!organic, leads: 0, organic_leads: 0, booked: 0, showed: 0, noshow: 0, cancelled: 0, sent: 0, signed: 0, contracted: 0, paid: 0, cash: 0, spend: 0, impressions: 0, clicks: 0, link_clicks: 0, meta_leads: 0, plays: 0, s3: 0, p25: 0, thruplay: 0, avg_watch: 0 }; }
+function byKey(list, k) { var m = {}; (list || []).forEach(function (r) { m[r[k]] = r; }); return m; }
 
 function funnelCols(r) {
   var og = r.organic_leads || 0, adLeads = r.leads - og;
@@ -87,47 +102,84 @@ function adCols(r) {
     '<td class="d">' + pct(r.link_clicks || r.clicks, r.impressions) + '</td><td class="d">' + per(r.spend, r.link_clicks || r.clicks) + '</td><td class="d">' + pct(r.leads, r.link_clicks || r.clicks) + '</td>' +
     '<td class="d">' + (r.plays ? pct(r.s3, r.impressions) : '—') + '</td><td class="d">' + (r.s3 ? pct(r.thruplay, r.s3) : '—') + '</td><td class="d">' + (r.avg_watch ? r.avg_watch + 's' : '—') + '</td>';
 }
-var FUNNEL_H = '<th>Leads</th><th>CPL</th><th>Booked</th><th>Lead→booked</th><th>Cost/booking</th><th>No-show</th><th>Sent</th><th>Booked→sent</th><th>Signed</th><th>Sent→signed</th><th>Cost/signed</th><th>Contracted</th><th>Paid</th><th>Cash</th><th>ROAS</th>';
+var FUNNEL_H = '<th>Leads</th><th>CPL</th><th>Booked</th><th>Lead→booked</th><th>Cost/booking</th><th>No-show</th><th>Sent</th><th>Booked→sent</th><th>Signed</th><th>Sent→signed</th><th>Cost/signed</th><th>Contracted</th><th>Paid</th><th>Cash, any date</th><th>ROAS</th>';
 var AD_H = '<th>Spend</th><th>Impr</th><th>CTR</th><th>CPC</th><th>Click→lead</th><th>Hook</th><th>Hold</th><th>Avg watch</th>';
+function grpHead(first, ad) { return '<tr class="grp"><th class="l"></th><th colspan="5" class="gc">Collected and closed in this range</th>' + (ad ? '<th colspan="8">Ad delivery in this range</th>' : '') + '<th colspan="15">From leads that came in this range</th></tr>'; }
 
 function hideNoLead() { try { return localStorage.getItem('ads_hide_nolead') === '1'; } catch (e) { return false; } }
 function render(d) {
   cur = d;
-  var t = d.totals, all = d.client_total;
+  var t = d.totals, all = d.client_total, C = d.closed && d.closed.ok ? d.closed : null;
   var out = '';
-  out += '<div class="grid">' +
+  // ---- 1. headline: payments collected in the selected range
+  if (C) {
+    var T = C.total, sp = t.spend;
+    out += '<div class="grid top">' +
+      kpi('Payments collected', money(T.cash_in_range), T.payments_in_range + ' payment' + (T.payments_in_range === 1 ? '' : 's') + ' charged in this range · ' + money(C.paid_ads.cash_in_range) + ' from paid-ad leads · ' + money(C.organic.cash_in_range) + ' organic' + (C.no_lead.cash_in_range ? ' · ' + money(C.no_lead.cash_in_range) + ' no lead on file' : ''), 'money big') +
+      kpi('Paid-ad ROAS', roas(T.paid_cash_in_range, sp), money(T.paid_cash_in_range) + ' collected from paid-ad leads / ad spend · all payments / ad spend: ' + roas(T.cash_in_range, sp), 'money') +
+      kpi('Ad spend', money2(sp), 'in this range', 'spend') +
+      kpi('Deals closed', T.signed_in_range, money(T.contracted_in_range) + ' signed in this range' + (T.signed_in_range ? ' · ' + T.signed_in_range_new + ' new · ' + T.signed_in_range_upsell + ' upsell' : '')) +
+      '</div>';
+  } else {
+    out += '<div class="grid top"><div class="kpi big"><div class="l">Payments collected</div><div class="s">' + (d.closed && d.closed.ok === false ? '<span style="color:var(--red)">Not available right now (' + esc(d.closed.error || 'feed error') + '). The numbers below are still right.</span>' : 'Not in this saved copy. The live numbers replace it in a moment.') + '</div></div>' +
+      kpi('Ad spend', money2(t.spend), 'in this range', 'spend') + '</div>';
+  }
+
+  // ---- 2. by creator, sorted by payments collected
+  var coh = byKey(d.creators, 'creator'), names = [];
+  if (C) C.creators.forEach(function (r) { names.push(r.key); });
+  d.creators.forEach(function (r) { if (names.indexOf(r.creator) < 0) names.push(r.creator); });
+  var cc = C ? byKey(C.creators, 'key') : {};
+  var cr = names.map(function (n) { var r = coh[n] || zeroRow(n); return '<tr><td class="l"><span class="name">' + esc(n) + '</span>' + (n === 'No lead on file' ? '<div class="meta">customer not in GHL as a lead</div>' : '') + '</td>' + closedCols(C ? (cc[n] || Z_CLOSED) : null) + adCols(r) + funnelCols(r) + '</tr>'; }).join('');
+  out += '<section><h2>By creator <span>sorted by payments collected in this range · CPL is spend over ad leads only</span></h2>' + (names.length ? '<div class="scroll"><table><thead>' + grpHead(true, true) + '<tr><th class="l">Creator</th>' + CLOSED_H + AD_H + FUNNEL_H + '</tr></thead><tbody>' + cr + '<tr class="tot"><td class="l">Total</td>' + closedCols(C ? C.total : null) + adCols(t) + funnelCols(t) + '</tr></tbody></table></div>' : '<div class="empty">No paid ads in this range.</div>') + '</section>';
+
+  // ---- 3. the payments and deals themselves
+  if (C) {
+    var pr = C.payments.map(function (p) { return '<tr><td class="l">' + esc(p.day) + '</td><td class="l"><span class="name">' + esc(p.customer) + '</span></td><td class="g">' + money(p.gross) + '</td><td class="l"><span class="tag">' + esc(p.creator) + '</span>' + esc(p.creator === 'No lead on file' ? (p.no_lead_reason || '') : p.row) + '</td></tr>'; }).join('');
+    var dr = C.deals.map(function (q) { return '<tr><td class="l">' + esc(q.day) + '</td><td class="l"><span class="name">' + esc(q.business) + '</span>' + (q.upsell ? ' <span class="tag">upsell</span>' : '') + '</td><td class="a">' + money(q.total) + '</td><td class="l"><span class="tag">' + esc(q.creator) + '</span>' + esc(q.creator === 'No lead on file' ? (q.no_lead_reason || '') : q.row) + '</td></tr>'; }).join('');
+    out += '<div class="two"><section><h2>Payments collected <span>' + C.payments.length + ' · ' + money(C.total.cash_in_range) + ' · by the day the money came in</span></h2>' + (C.payments.length ? '<div class="scroll"><table><thead><tr><th class="l">Day</th><th class="l">Customer</th><th>Amount</th><th class="l">Credited to</th></tr></thead><tbody>' + pr + '</tbody></table></div>' : '<div class="empty">No payments in this range.</div>') + '</section>' +
+      '<section><h2>Deals closed <span>' + C.deals.length + ' · ' + money(C.total.contracted_in_range) + ' · by the day it was signed</span></h2>' + (C.deals.length ? '<div class="scroll"><table><thead><tr><th class="l">Day</th><th class="l">Business</th><th>Value</th><th class="l">Credited to</th></tr></thead><tbody>' + dr + '</tbody></table></div>' : '<div class="empty">No deals signed in this range.</div>') + '</section></div>';
+  }
+
+  // ---- 4. cohort: what the leads that came in this range have done so far
+  out += '<h3 class="cohort">From leads that came in this range <span>what those leads have done since, at any date</span></h3><div class="grid">' +
     kpi('Leads', all.leads, t.leads + ' from ads · ' + all.organic + ' organic' + (d.credit && d.credit.organic_creator && all.organic ? ' (credited to ' + esc(d.credit.organic_creator) + ')' : '') + (all.imports_excluded ? ' · ' + all.imports_excluded + ' imports excluded' : '') + (all.tests_excluded ? ' · ' + all.tests_excluded + ' test' + (all.tests_excluded > 1 ? 's' : '') + ' excluded' : '') + (all.phone_only_excluded ? ' · ' + all.phone_only_excluded + ' inbound call' + (all.phone_only_excluded > 1 ? 's' : '') + ' (no form) excluded' : '')) +
     kpi('Cost per lead', per(t.spend, t.leads), 'paid ads only') +
     kpi('Booked', t.booked, pct(t.booked, t.leads) + ' of ad leads') +
-    kpi('Signed', t.signed, pct(t.signed, t.leads) + ' of ad leads · cost ' + per(t.spend, t.signed)) +
-    kpi('Revenue contracted', money(t.contracted), 'signed value from these leads', 'money') +
-    kpi('Cash collected', money(t.cash), 'ledger, from these leads', 'money') +
-    kpi('Ad spend', money2(t.spend), 'ROAS ' + x(t.cash, t.spend) + ' · contracted ' + x(t.contracted, t.spend), 'spend') +
+    kpi('Signed from these leads', t.signed, pct(t.signed, t.leads) + ' of ad leads · cost ' + per(t.spend, t.signed)) +
+    kpi('Contracted from these leads', money(t.contracted), 'signed value, any date') +
+    kpi('Cash from these leads', money(t.cash), 'ledger, any date · ' + x(t.cash, t.spend) + ' of spend') +
     kpi('Hook / hold', (t.plays ? pct(t.s3, t.impressions) : '—') + ' / ' + (t.s3 ? pct(t.thruplay, t.s3) : '—'), 'avg watch ' + (t.avg_watch ? t.avg_watch + 's' : '—') + ' · CTR ' + pct(t.link_clicks || t.clicks, t.impressions)) +
     '</div>';
 
-  var cr = d.creators.map(function (r) { return '<tr><td class="l"><span class="name">' + esc(r.creator) + '</span></td>' + adCols(r) + funnelCols(r) + '</tr>'; }).join('');
-  out += '<section><h2>By creator <span>paid ads plus organic leads credited to the creator, this range · CPL is spend over ad leads only</span></h2>' + (d.creators.length ? '<div class="scroll"><table><thead><tr><th class="l">Creator</th>' + AD_H + FUNNEL_H + '</tr></thead><tbody>' + cr + '<tr class="tot"><td class="l">Total</td>' + adCols(t) + funnelCols(t) + '</tr></tbody></table></div>' : '<div class="empty">No paid ads in this range.</div>') + '</section>';
+  // ---- 5. by ad (ads with spend or leads in the range, plus ads whose customers paid or signed in it)
+  var ck = C ? byKey(C.ads.concat(C.organic_rows), 'key') : {}, seen = {};
+  var adRows = d.ads.slice(); adRows.forEach(function (r) { seen[r.key] = 1; });
+  if (C) C.ads.forEach(function (r) { if (!seen[r.key] && (r.cash_in_range || r.signed_in_range)) { var z = zeroRow(r.key); z.creator = r.creator; adRows.push(z); } });
+  var shown = function (r) { var c = ck[r.key]; return r.leads || (c && (c.cash_in_range || c.signed_in_range)); };
+  var ar = adRows.map(function (r) { return '<tr' + (shown(r) ? '' : ' class="nolead"') + '><td class="l"><span class="tag">' + esc(r.creator) + '</span><span class="name">' + esc(r.ad) + '</span><div class="meta">' + esc(r.campaign || '') + (r.adset ? ' · ' + esc(r.adset) : '') + '</div></td>' + closedCols(C ? (ck[r.key] || Z_CLOSED) : null) + adCols(r) + funnelCols(r) + '</tr>'; }).join('');
+  var noLead = adRows.filter(function (r) { return !shown(r); }).length;
+  out += '<section id="byad"' + (hideNoLead() ? ' class="hidenl"' : '') + '><h2>By ad <span><span id="adcount"></span><label class="flt"><input type="checkbox" id="hidenl"' + (hideNoLead() ? ' checked' : '') + '> hide ads with no leads, payments or deals</label></span></h2>' + (adRows.length ? '<div class="scroll"><table><thead>' + grpHead(false, true) + '<tr><th class="l">Ad</th>' + CLOSED_H + AD_H + FUNNEL_H + '</tr></thead><tbody>' + ar + '<tr class="tot"><td class="l">Total</td>' + closedCols(C ? C.paid_ads : null) + adCols(t) + funnelCols(t) + '</tr></tbody></table></div>' : '<div class="empty">No ads in this range.</div>') + '</section>';
 
-  var ar = d.ads.map(function (r) { return '<tr' + (r.leads ? '' : ' class="nolead"') + '><td class="l"><span class="tag">' + esc(r.creator) + '</span><span class="name">' + esc(r.ad) + '</span><div class="meta">' + esc(r.campaign || '') + (r.adset ? ' · ' + esc(r.adset) : '') + '</div></td>' + adCols(r) + funnelCols(r) + '</tr>'; }).join('');
-  var noLead = d.ads.filter(function (r) { return !r.leads; }).length;
-  out += '<section id="byad"' + (hideNoLead() ? ' class="hidenl"' : '') + '><h2>By ad <span><span id="adcount"></span><label class="flt"><input type="checkbox" id="hidenl"' + (hideNoLead() ? ' checked' : '') + '> hide ads with no leads</label></span></h2>' + (d.ads.length ? '<div class="scroll"><table><thead><tr><th class="l">Ad</th>' + AD_H + FUNNEL_H + '</tr></thead><tbody>' + ar + '<tr class="tot"><td class="l">Total</td>' + adCols(t) + funnelCols(t) + '</tr></tbody></table></div>' : '<div class="empty">No ads in this range.</div>') + '</section>';
-
-  var orr = d.organic.map(function (r) { return '<tr><td class="l">' + (r.creator && r.creator !== 'Organic' ? '<span class="tag">' + esc(r.creator) + '</span>' : '') + '<span class="name">' + esc(r.ad) + '</span></td><td>' + r.leads + '</td><td>' + r.booked + '</td><td class="d">' + pct(r.booked, r.leads) + '</td><td>' + (r.noshow || 0) + '</td><td>' + r.sent + '</td><td>' + r.signed + '</td><td class="a">' + money(r.contracted) + '</td><td>' + r.paid + '</td><td class="g">' + money(r.cash) + '</td></tr>'; }).join('');
-  out += '<section><h2>Organic &amp; other <span>leads with no ad attached: bio links, referrals, manual adds</span></h2>' + (d.organic.length ? '<div class="scroll"><table><thead><tr><th class="l">Source</th><th>Leads</th><th>Booked</th><th>Lead→booked</th><th>No-show</th><th>Sent</th><th>Signed</th><th>Contracted</th><th>Paid</th><th>Cash</th></tr></thead><tbody>' + orr + '</tbody></table></div>' : '<div class="empty">None in this range.</div>') + '</section>';
+  // ---- 6. organic and other (incl. "No lead on file")
+  var orgRows = d.organic.slice(), oseen = {}; orgRows.forEach(function (r) { oseen[r.key] = 1; });
+  if (C) C.organic_rows.forEach(function (r) { if (!oseen[r.key] && (r.cash_in_range || r.signed_in_range)) { var z = zeroRow(r.ad, true); z.key = r.key; z.creator = r.creator; orgRows.push(z); } });
+  var oc = function (r) { var c = C ? (ck[r.key] || Z_CLOSED) : null; return c ? '<td class="g big">' + money(c.cash_in_range) + '</td><td>' + (c.signed_in_range || 0) + '</td><td class="a">' + money(c.contracted_in_range) + '</td>' : '<td class="d">-</td><td class="d">-</td><td class="d">-</td>'; };
+  var orr = orgRows.map(function (r) { return '<tr><td class="l">' + (r.creator && r.creator !== 'Organic' && r.creator !== r.ad ? '<span class="tag">' + esc(r.creator) + '</span>' : '') + '<span class="name">' + esc(r.ad) + '</span></td>' + oc(r) + '<td>' + r.leads + '</td><td>' + r.booked + '</td><td class="d">' + pct(r.booked, r.leads) + '</td><td>' + (r.noshow || 0) + '</td><td>' + r.sent + '</td><td>' + r.signed + '</td><td class="a">' + money(r.contracted) + '</td><td>' + r.paid + '</td><td class="g">' + money(r.cash) + '</td></tr>'; }).join('');
+  out += '<section><h2>Organic &amp; other <span>leads with no ad attached: bio links, referrals, manual adds; and payments from customers with no lead on file</span></h2>' + (orgRows.length ? '<div class="scroll"><table><thead><tr class="grp"><th class="l"></th><th colspan="3" class="gc">In this range</th><th colspan="9">From leads that came in this range</th></tr><tr><th class="l">Source</th><th>Payments collected</th><th>Deals closed</th><th>Signed value</th><th>Leads</th><th>Booked</th><th>Lead→booked</th><th>No-show</th><th>Sent</th><th>Signed</th><th>Contracted</th><th>Paid</th><th>Cash, any date</th></tr></thead><tbody>' + orr + '</tbody></table></div>' : '<div class="empty">None in this range.</div>') + '</section>';
 
   document.getElementById('app').innerHTML = out;
-  var adCount = function () { var h = hideNoLead(); document.getElementById('adcount').textContent = d.ads.length + ' ads · sorted by spend' + (h && noLead ? ' · ' + noLead + ' with no leads hidden' : ''); };
+  var adCount = function () { var h = hideNoLead(); document.getElementById('adcount').textContent = adRows.length + ' ads · sorted by spend' + (h && noLead ? ' · ' + noLead + ' with no leads, payments or deals hidden' : ''); };
   adCount();
   document.getElementById('hidenl').onchange = function () { try { localStorage.setItem('ads_hide_nolead', this.checked ? '1' : '0'); } catch (e) {} document.getElementById('byad').classList.toggle('hidenl', this.checked); adCount(); };
-  document.getElementById('foot').textContent = d.definitions.cohort + ' Hook rate = ' + d.definitions.hook + '. Hold rate = ' + d.definitions.hold + '. Cash = ' + d.definitions.cash + '. No-shows only count when a rep marks the appointment as no-show in GHL. Times in Los Angeles (ad account time).';
+  document.getElementById('foot').textContent = (d.definitions.closed ? d.definitions.closed + ' ' : '') + 'From leads that came in this range: ' + d.definitions.cohort + ' Hook rate = ' + d.definitions.hook + '. Hold rate = ' + d.definitions.hold + '. Cash = ' + d.definitions.cash + '. No-shows only count when a rep marks the appointment as no-show in GHL. Times in Los Angeles (ad account time).';
   lastOk = new Date();
   tick();
 }
 function tick() {
   if (!lastOk || !cur) return;
   var s = Math.round((Date.now() - lastOk.getTime()) / 1000);
-  document.getElementById('asof').innerHTML = '<b>LIVE</b> · ' + esc(cur.range.from) + (cur.range.to !== cur.range.from ? ' to ' + esc(cur.range.to) : '') + ' · updated ' + (s < 5 ? 'just now' : s < 60 ? s + 's ago' : Math.round(s / 60) + ' min ago') + ' · refreshes every 5 minutes';
+  document.getElementById('asof').innerHTML = '<b>LIVE</b> · ' + esc(cur.range.from) + (cur.range.to !== cur.range.from ? ' to ' + esc(cur.range.to) : '') + ' · updated ' + (s < 5 ? 'just now' : s < 60 ? s + 's ago' : Math.round(s / 60) + ' min ago') + (spanDays() > 31 ? ' · long range: not auto-refreshed' : ' · refreshes every 5 minutes');
 }
 function fail(msg) {
   if (lastOk) { document.getElementById('asof').innerHTML = '<span style="color:var(--amber)">Could not refresh (' + esc(msg) + '). Showing ' + lastOk.toLocaleTimeString() + '.</span>'; return; }
@@ -152,11 +204,27 @@ function load() {
     .then(function (d) { if (!d.ok) throw new Error(d.error || 'build failed'); render(d); })
     .catch(function (e) { fail(e.message || String(e)); });
 }
+// All time + long-range notice (Chris 2026-10-08: Today / 7 days / 30 days / All time / Custom, "no limits on the custom").
+// All time = Jun 1 2026 (first paid ads) to LA today. From/To take any dates (no min, max or length cap; reversed dates are
+// swapped). A range over 31 days is pulled month by month, so while it loads a note says so with a running seconds count.
+// It watches #asof for the spinner, so it works under the HQ live wrapper (which replaces load()) and standalone alike.
+// A long range is not re-pulled every 5 minutes (review 2026-10-08), and no page re-pulls while hidden.
+var ALL_FROM = '2026-06-01', slowT0 = 0;
+function spanDays() { return Math.round((Date.parse(range[1]) - Date.parse(range[0])) / 864e5) + 1; }
+function slowNote() {
+  var el = document.getElementById('slow'); if (!el) return;
+  var busy = !!document.querySelector('#asof .spin'), n = spanDays();
+  if (!busy || !(n > 31)) { el.style.display = 'none'; slowT0 = 0; return; }
+  if (!slowT0) slowT0 = Date.now();
+  el.style.display = ''; el.textContent = 'Long range (' + n.toLocaleString('en-US') + ' days): Meta and GHL are pulled month by month, this can take up to a minute. ' + Math.round((Date.now() - slowT0) / 1000) + 's';
+}
+if (window.MutationObserver) new MutationObserver(slowNote).observe(document.getElementById('asof'), { childList: true, subtree: true });
+setInterval(slowNote, 1000);
 var btns = document.querySelectorAll('.ranges button[data-r]');
 for (var i = 0; i < btns.length; i++) btns[i].onclick = function () { for (var z = 0; z < btns.length; z++) btns[z].classList.remove('on'); this.classList.add('on'); curKey = this.getAttribute('data-r'); range = rng(curKey); lastOk = null; load(); };
-document.getElementById('go').onclick = function () { var f = document.getElementById('df').value, t = document.getElementById('dt').value; if (!f) return; for (var z = 0; z < btns.length; z++) btns[z].classList.remove('on'); curKey = 'custom'; range = [f, t || f]; lastOk = null; load(); };
+document.getElementById('go').onclick = function () { var f = document.getElementById('df').value, t = document.getElementById('dt').value; if (!f) return; for (var z = 0; z < btns.length; z++) btns[z].classList.remove('on'); curKey = 'custom'; range = t && t < f ? [t, f] : [f, t || f]; lastOk = null; load(); };
 load();
-if (!SNAP) { setInterval(load, 300000); setInterval(tick, 5000); }
+if (!SNAP) { setInterval(function () { if (document.visibilityState !== 'hidden' && !(spanDays() > 31)) load(); }, 300000); setInterval(tick, 5000); }
 </script>
 </body>
 </html>

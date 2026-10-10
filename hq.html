@@ -15,6 +15,8 @@ h1{font-size:16px;letter-spacing:.02em;white-space:nowrap}
 .badge{font-size:10px;letter-spacing:.06em;border:1px solid var(--green);color:var(--green);border-radius:4px;padding:1px 6px}
 #panes{flex:1;position:relative;overflow:auto}
 iframe.pane{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg)}
+iframe.pane.off{visibility:hidden;pointer-events:none}   /* hidden tabs keep their real size, so a tab refreshed while hidden lays out and draws correctly */
+#upd{display:none;cursor:pointer;font-family:inherit;background:transparent}
 #team{display:none;padding:20px;max-width:1100px;margin:0 auto}
 #load{padding:40px;text-align:center;color:var(--dim)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
@@ -42,7 +44,7 @@ td{padding:8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align
 .pill{display:inline-block;font-size:11px;letter-spacing:.04em;border:1px solid var(--line);border-radius:999px;padding:1px 8px;white-space:nowrap}
 .pill.green{border-color:var(--green);color:var(--green)}.pill.amber{border-color:var(--amber);color:var(--amber)}.pill.dim{color:var(--dim)}
 </style></head><body>
-<header><h1>SOCIAL ONYX HQ</h1><nav id="tabs"></nav><span class="who" id="who"></span></header>
+<header><h1>SOCIAL ONYX HQ</h1><nav id="tabs"></nav><button class="pill amber" id="upd" title="This tab has newer numbers. Click to load them.">Updated, refresh</button><span class="who" id="who"></span></header>
 <div id="panes"><div id="load">Loading...</div><div id="team"></div></div>
 <div class="toast" id="toast"></div>
 <script>
@@ -62,6 +64,7 @@ function getSession(){try{return localStorage.getItem('sop_session')||''}catch(e
 function setSession(s){try{if(s)localStorage.setItem('sop_session',s);else localStorage.removeItem('sop_session');}catch(e){}}
 var T=LEGACY||getSession();
 var D=null, frames={}, current=null, TEAM=null;
+var KNOWN={}, PEND={};   // freshness (2026-10-09): KNOWN = what each open frame shows {u: updated_at, h: html}; PEND = newer tab waiting for the user
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function val(id){var x=document.getElementById(id);return x?x.value.trim():'';}
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(function(){t.style.display='none'},2600);}
@@ -72,7 +75,7 @@ function hqPost(body){return fetch(HQ+'?t='+encodeURIComponent(T),{method:'POST'
 
 /* ---------- sign-in: same flow as the SOP Library, same codes, same session ---------- */
 function signin(msg,email){
-  D=null;document.getElementById('who').innerHTML='';document.getElementById('tabs').innerHTML='';document.getElementById('team').style.display='none';
+  D=null;KNOWN={};PEND={};pill();document.getElementById('who').innerHTML='';document.getElementById('tabs').innerHTML='';document.getElementById('team').style.display='none';
   Object.keys(frames).forEach(function(k){frames[k].remove();});frames={};
   var l=document.getElementById('load');l.style.display='block';
   l.innerHTML='<div class="card signin"><h3>Sign in</h3><div class="sub">Use the email you were invited with. A 6-digit code is texted to the phone on file (an email copy goes out too). It is the same sign-in as the SOP Library.</div>'+(msg?'<div class="sub" style="color:var(--amber);margin-top:8px">'+esc(msg)+'</div>':'')+
@@ -122,7 +125,7 @@ function load(){
       if(LEGACY&&T===LEGACY){l.textContent='This link is not active. Open the HQ without a link and sign in with your email, or ask Chris.';return;}
       setSession('');T='';signin(/expired|inactive|sign in/.test(j.error||'')?'Your sign-in has expired. Enter your email for a new code.':('Could not load: '+(j.error||'unknown')));return;
     }
-    D=j;
+    D=j;KNOWN={};PEND={};lastPoll=Date.now();
     document.getElementById('who').innerHTML=esc(j.member.name)+' · '+esc(j.member.role_name)+(j.member.is_ceo?'<span class="badge">CEO</span>':(j.member.is_admin?'<span class="badge">ADMIN</span>':''))+(j.member.via_session?' <button class="btn sm" id="signout">Sign out</button>':'');
     var so=document.getElementById('signout');if(so)so.onclick=function(){hqPost({action:'logout'}).then(function(){setSession('');T='';signin('Signed out.');});};
     l.style.display='none';
@@ -139,18 +142,85 @@ function nav(){
   if(D.member.is_admin){var b=document.createElement('button');b.textContent='Team';b.dataset.tab='Team';b.onclick=function(){activate('Team')};bar.appendChild(b);}
 }
 function activate(name){
-  current=name;
+  var prev=current;current=name;
   [].forEach.call(document.getElementById('tabs').children,function(b){b.classList.toggle('on',b.dataset.tab===name);});
-  Object.keys(frames).forEach(function(k){frames[k].style.display=k===name?'block':'none';});
+  Object.keys(frames).forEach(function(k){frames[k].classList.toggle('off',k!==name);});
+  if(prev&&prev!==name&&PEND[prev]&&frames[prev]&&!dirty(frames[prev]))swap(prev,PEND[prev]);   // left a tab with an update waiting: it is hidden now, so load it
   var tp=document.getElementById('team');tp.style.display=name==='Team'?'block':'none';
   if(name==='Team'){renderTeam();}
   else if(!frames[name]){
     var t=D.tabs.filter(function(x){return x.name===name})[0];if(!t)return;
     var f=document.createElement('iframe');f.className='pane';f.setAttribute('title',name);f.srcdoc=t.html;
     frames[name]=f;document.getElementById('panes').appendChild(f);
+    KNOWN[name]={u:t.updated_at,h:t.html};delete PEND[name];
   }
+  pill();
   try{localStorage.setItem('onyx_hq_tab',name);}catch(e){}
 }
+
+/* ---------- freshness (2026-10-09): the tab list is re-fetched when the page comes back into view and every 10 minutes.
+   A tab is replaced only when its updated_at AND its html changed (live tabs are stamped "now" on every request but
+   their html does not change). Hidden tabs are replaced right away unless someone has typed into them; the tab being
+   viewed is never replaced under the user: a small "Updated, refresh" pill appears instead, and the update also loads
+   when they switch away. Same session token and same GET as load(); a failed check changes nothing (no sign-out). */
+var lastPoll=0, polling=false, POLL_MS=10*60*1000, MIN_GAP_MS=60*1000;
+function dirty(f){
+  try{
+    var d=f.contentDocument;if(!d)return true;
+    var a=d.activeElement;
+    if(a&&a!==d.body&&a.matches&&a.matches('input,textarea,select,[contenteditable],[contenteditable] *')&&!a.hasAttribute('data-view-only'))return true;
+    var els=d.querySelectorAll('input,textarea,select');
+    for(var i=0;i<els.length;i++){var el=els[i];if(el.hasAttribute('data-view-only'))continue;var ty=String(el.type||'').toLowerCase();
+      if(el.tagName==='SELECT'){var di=-1;for(var o=0;o<el.options.length;o++){if(el.options[o].defaultSelected&&di<0)di=o;if(el.multiple&&el.options[o].selected!==el.options[o].defaultSelected)return true;}if(!el.multiple&&el.selectedIndex!==(di<0?0:di))return true;}
+      else if(ty==='checkbox'||ty==='radio'){if(el.checked!==el.defaultChecked)return true;}
+      else if(ty!=='button'&&ty!=='submit'&&ty!=='reset'&&ty!=='hidden'&&el.value!==el.defaultValue)return true;}
+    return false;
+  }catch(e){return true;}   // cannot look inside: treat as being edited, so it waits for the pill
+}
+function swap(name,t){
+  var f=frames[name];if(!f)return;
+  var y=0;try{y=f.contentWindow.scrollY||0;}catch(e){}
+  f.addEventListener('load',function once(){f.removeEventListener('load',once);if(y)try{f.contentWindow.scrollTo(0,y);}catch(e){}});
+  f.srcdoc=t.html;KNOWN[name]={u:t.updated_at,h:t.html};delete PEND[name];pill();
+}
+function pill(){var p=document.getElementById('upd');if(p)p.style.display=current&&PEND[current]&&frames[current]?'inline-block':'none';}
+document.getElementById('upd').onclick=function(){if(current&&PEND[current])swap(current,PEND[current]);};
+function applyTabs(j){
+  var oldNames=D.tabs.map(function(t){return t.name}).join('\n'),newNames=j.tabs.map(function(t){return t.name}).join('\n');
+  D.tabs=j.tabs;   // a tab opened for the first time from now on starts from the newest html
+  var live={};
+  j.tabs.forEach(function(t){
+    live[t.name]=1;
+    var k=KNOWN[t.name];
+    if(!k||!frames[t.name])return;                       // never opened: nothing on screen to update
+    if(k.u===t.updated_at)return;
+    if(k.h===t.html){k.u=t.updated_at;delete PEND[t.name];return;}   // re-stamped, same page (live tabs)
+    if(t.name!==current&&!dirty(frames[t.name]))swap(t.name,t);
+    else PEND[t.name]=t;
+  });
+  Object.keys(PEND).forEach(function(n){if(!live[n])delete PEND[n];});
+  if(oldNames!==newNames){   // the role's tabs changed: rebuild the bar, drop tabs that are gone
+    nav();
+    Object.keys(frames).forEach(function(n){if(!live[n]&&n!==current){frames[n].remove();delete frames[n];delete KNOWN[n];}});
+    if(current==='Team'&&!D.member.is_admin)current=null;
+    if(current&&current!=='Team'&&!live[current]){var gone=current;if(frames[gone]){frames[gone].remove();delete frames[gone];delete KNOWN[gone];}current=null;if(D.tabs[0])activate(D.tabs[0].name);}
+    else [].forEach.call(document.getElementById('tabs').children,function(b){b.classList.toggle('on',b.dataset.tab===current);});
+  }
+  pill();
+}
+function poll(fromTimer){
+  if(!D||!T||polling)return;
+  if(fromTimer&&document.hidden)return;                       // the visibility check catches up when they come back
+  if(!fromTimer&&Date.now()-lastPoll<MIN_GAP_MS)return;
+  var tok=T,me=D.member.id;polling=true;lastPoll=Date.now();
+  fetch(HQ+'?t='+encodeURIComponent(tok),{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){
+    if(!j||!j.ok||!Array.isArray(j.tabs)||!D||T!==tok||!j.member||j.member.id!==me)return;
+    applyTabs(j);
+  }).catch(function(){}).then(function(){polling=false;});
+}
+setInterval(function(){poll(true);},POLL_MS);
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')poll(false);});
+window.addEventListener('focus',function(){poll(false);});
 
 /* ---------- Team panel: same panel as the SOP Library, talking to the SOP Library API ---------- */
 function loadTeam(){return fetch(SOP+'?t='+encodeURIComponent(T)+'&json=1',{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){if(!j.ok)throw new Error(j.error||'could not load team');TEAM=j;return j;});}
