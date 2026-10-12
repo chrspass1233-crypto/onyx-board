@@ -44,6 +44,21 @@ tr.done td{opacity:.55}
 .mp input,.mp select,.mp textarea{width:100%;background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;font-size:14px}.mp textarea{min-height:48px}
 .mp .btn{background:var(--green);color:#04120a;border:0;border-radius:8px;padding:9px 16px;font:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px}.mp .btn:disabled{opacity:.5;cursor:default}.mp .out{color:var(--dim);font-size:13px;margin-top:8px}
 .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px}.pill.pend{background:#2b2410;color:var(--amber)}.pill.appr{background:#12301c;color:var(--green)}.pill.rej{background:#2a1416;color:var(--red)}
+.badge{display:inline-block;background:var(--red);color:#fff;font-size:11px;font-weight:700;letter-spacing:.04em;border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:1px}
+.cl{padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer}.cl.open{background:rgba(88,166,255,.06)}
+.cl .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.cl .saved{color:var(--green);font-size:13px;margin-top:2px}
+.pill.todo{background:rgba(248,81,73,.15);color:var(--red)}.pill.later{background:rgba(88,166,255,.15);color:var(--blue)}.pill.done{background:rgba(63,185,80,.15);color:var(--green)}
+.acf{padding:2px 14px 16px;border-bottom:1px solid var(--line);background:rgba(88,166,255,.06)}
+.acf .q{color:var(--dim);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin:14px 0 6px}
+.taps{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.taps.five{grid-template-columns:repeat(5,1fr)}.taps.one{grid-template-columns:1fr}
+.tap{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:11px 10px;font:inherit;font-size:15px;font-weight:600;cursor:pointer;min-height:46px}
+.taps.one .tap{text-align:left;font-weight:500;font-size:14px}.tap.on{background:var(--blue);border-color:var(--blue);color:#04121f}
+.auto{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--blue);border:1px solid rgba(88,166,255,.55);border-radius:999px;padding:0 6px;margin-left:6px;vertical-align:1px}
+.acf input,.acf textarea{width:100%;background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit;font-size:16px}.acf textarea{min-height:64px}
+.acf input+input{margin-top:8px}.acf .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.acf .note{color:var(--dim);font-size:13px;margin-top:12px;border-left:3px solid var(--blue);padding-left:8px}
+.acf .btn{background:var(--green);color:#04120a;border:0;border-radius:10px;padding:12px 18px;font:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-top:14px;min-height:46px}
+.acf .btn:disabled{opacity:.5;cursor:default}.acf .btn.ghost{background:transparent;color:var(--dim);border:1px solid var(--line);margin-left:6px}.acf .out{color:var(--amber);font-size:14px;margin-top:8px}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes s{to{transform:rotate(360deg)}}
 /*]]>*/</style>
@@ -60,6 +75,7 @@ var API = 'https://rtbatvkghjnuwmgienqv.supabase.co/functions/v1/socialonyx-rep-
 var q = new URLSearchParams(location.search);
 var T = q.get('r') || (location.hash.match(/r=([A-Za-z0-9]+)/) || [])[1] || '';
 var lastOk = null;
+var LAST = null, AC = { open: null, d: {}, flash: null };   // after-call reports: open form, drafts per call, last saved
 
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 function money(n) { return '$' + Math.round(Number(n) || 0).toLocaleString('en-US'); }
@@ -77,6 +93,8 @@ function render(m) {
   var out = '';
   var D = m.dials || null;
   out += '<div class="strip">' + kpi('Earned', money(m.earned)) + kpi('Paid out', money(m.paid)) + kpi('Owed', money(m.owed), 'owed') + (m.waiting.length ? kpi('Waiting on clients', money(m.waitingTotal), 'wait') : '') + (D ? kpi('Dials today', D.today + ' / ' + D.target, D.today >= D.target ? 'owed' : 'wait') : '') + '</div>';
+  LAST = m;
+  out += acSection();
 
   if (D) {
     var drows = D.by_day.map(function (d) { return '<tr>' + td('biz', esc(d.day)) + td('r ' + (d.dials >= D.target ? 'comm' : (d.dials ? 'amber' : 'dim')), String(d.dials)) + td('r dim', String(d.connects)) + '</tr>'; });
@@ -100,6 +118,10 @@ function render(m) {
   var wait = m.waiting.map(function (w) { return '<tr>' + td('', '<div class="biz">' + esc(w.biz) + '</div><div class="sub">' + esc(w.client) + '</div>') + td('dim', esc(w.kind || '')) + td('r', money(w.total)) + td('r dim', money(w.got)) + td('r amber', money(w.open)) + td('r comm', money(w.cut || 0)) + td('r dim', w.days + 'd') + '</tr>'; });
   out += '<section><h2>Signed, waiting on money</h2>' + (wait.length ? table([{ t: 'Client' }, { t: 'Type' }, { t: 'Contract', r: 1 }, { t: 'Collected', r: 1 }, { t: 'Still owed', r: 1 }, { t: 'Your cut when paid', r: 1 }, { t: 'Since signing', r: 1 }], wait) : '<div class="empty">Every signed client has paid in full.</div>') + '</section>';
 
+  if (m.written_off && m.written_off.length) {
+    var wor = m.written_off.map(function (w) { return '<tr>' + td('', '<div class="biz">' + esc(w.biz) + '</div><div class="sub">' + esc(w.client) + '</div>') + td('dim', esc(w.kind || '')) + td('r', money(w.total)) + td('r dim', money(w.got)) + td('r dim', money(w.written_off)) + td('r dim', w.days + 'd') + '</tr>'; });
+    out += '<section><h2>Written off (not counted as waiting)</h2>' + table([{ t: 'Client' }, { t: 'Type' }, { t: 'Contract', r: 1 }, { t: 'Collected', r: 1 }, { t: 'Written off', r: 1 }, { t: 'Since signing', r: 1 }], wor) + '<div class="empty">The unpaid balance is not counted. If this client pays later it still counts as collected and your commission books as usual.</div></section>';
+  }
   var uns = m.unsigned.map(function (u) { return '<tr>' + td('biz', esc(u.biz)) + td('dim', esc(u.kind || '')) + td('r', money(u.total)) + td('dim', esc(u.status)) + td('r dim', u.days + 'd') + '</tr>'; });
   out += '<section><h2>Sent, not signed (last 45 days)</h2>' + (uns.length ? table([{ t: 'Client' }, { t: 'Type' }, { t: 'Contract', r: 1 }, { t: 'Status' }, { t: 'Age', r: 1 }], uns) : '<div class="empty">No open agreements.</div>') + '</section>';
 
@@ -107,7 +129,7 @@ function render(m) {
   // Romario approves it in the HQ; approved ones count like any other payment (your 10% books within 10 minutes).
   var mrows = (m.manual || []).map(function (p) { var st = p.status === 'approved' ? '<span class="pill appr">APPROVED</span>' : p.status === 'rejected' ? '<span class="pill rej">REJECTED</span>' : '<span class="pill pend">WAITING FOR APPROVAL</span>'; return '<tr>' + td('biz', esc(p.lead_name) + (p.business ? '<div class="sub">' + esc(p.business) + '</div>' : '')) + td('r', money(p.amount)) + td('dim', esc(p.method === 'Custom' ? (p.method_detail || 'custom') : p.method)) + td('dim', esc(p.paid_on)) + td('', st + (p.status === 'rejected' && p.decision_note ? '<div class="sub">' + esc(p.decision_note) + '</div>' : '') + (p.status !== 'pending' && p.decided_by ? '<div class="sub">by ' + esc(p.decided_by) + '</div>' : '')) + '</tr>'; });
   var copts = (m.clients || []).filter(function (c) { return c.client || c.biz; }).map(function (c) { return '<option value="' + esc(c.client || c.biz) + '">' + esc((c.biz || '') + (c.email ? ' - ' + c.email : '')) + '</option>'; }).join('');
-  var METHODS = ['Zelle', 'Cash', 'Check', 'Wire', 'Venmo', 'CashApp', 'PayPal', 'Commas link paid but not showing', 'Custom'];
+  var METHODS = ['Zelle', 'Cash', 'Check', 'Wire', 'Venmo', 'CashApp', 'PayPal', 'Custom'];
   out += '<section><h2>Log a payment that did not go through Commas</h2><div class="mp"><div class="g">'
     + '<div><label>Who paid</label><input id="mp-lead" list="mp-clients" placeholder="Customer name" autocomplete="off"><datalist id="mp-clients">' + copts + '</datalist></div>'
     + '<div><label>Amount</label><input id="mp-amt" inputmode="decimal" placeholder="1000"></div>'
@@ -115,12 +137,15 @@ function render(m) {
     + '<div id="mp-custom-wrap" style="display:none"><label>Say how</label><input id="mp-custom" placeholder="e.g. Apple Cash"></div>'
     + '<div><label>Date they paid</label><input id="mp-date" type="date"></div>'
     + '<div><label>Reference or note (optional)</label><input id="mp-note" placeholder="confirmation #, deposit, etc."></div>'
-    + '</div><button class="btn" id="mp-go">Log this payment</button><div class="out" id="mp-out">It goes to Chris, Jose and Romario for approval by text. Once approved it counts on the customer\'s balance and your commission.</div></div>'
+    + '</div><button class="btn" id="mp-go">Log this payment</button><div class="out" id="mp-out">It goes to Chris, Jose and Romario for approval by text. Once approved it counts on the customer\'s balance and your commission.</div><div class="out">Commas payments are never logged here. If a client paid through Commas and it is not showing, they paid from a different email: send Chris the email they paid with and it gets linked to their agreement.</div></div>'
     + (mrows.length ? table([{ t: 'Customer' }, { t: 'Amount', r: 1 }, { t: 'How' }, { t: 'Paid on' }, { t: 'Status' }], mrows) : '') + '</section>';
   var keep = {}, focusId = document.activeElement && document.activeElement.id && document.activeElement.id.indexOf('mp-') === 0 ? document.activeElement.id : null;
   ['mp-lead', 'mp-amt', 'mp-method', 'mp-custom', 'mp-date', 'mp-note'].forEach(function (id) { var el = document.getElementById(id); if (el) keep[id] = el.value; });
   var keepOut = document.getElementById('mp-out') ? document.getElementById('mp-out').textContent : '';
+  var acKeep = AC.open ? document.getElementById('ac') : null, acFocus = acKeep && acKeep.contains(document.activeElement) ? document.activeElement : null;
+  var acSel = acFocus && acFocus.selectionStart != null ? [acFocus.selectionStart, acFocus.selectionEnd] : null;
   document.getElementById('app').innerHTML = out;
+  if (acKeep) { var acNew = document.getElementById('ac'); if (acNew) acNew.parentNode.replaceChild(acKeep, acNew); if (acFocus) { acFocus.focus(); try { if (acSel) acFocus.setSelectionRange(acSel[0], acSel[1]); } catch (e) {} } } else wireAC();
   Object.keys(keep).forEach(function (id) { var el = document.getElementById(id); if (el && keep[id]) el.value = keep[id]; });
   if (keep['mp-method'] === 'Custom') { var cwv = document.getElementById('mp-custom-wrap'); if (cwv) cwv.style.display = ''; }
   if (keepOut && (keep['mp-lead'] || keep['mp-amt'])) { var oel = document.getElementById('mp-out'); if (oel) oel.textContent = keepOut; }
@@ -151,11 +176,111 @@ function wireManual(m) {
     }
     clearTimeout(go._arm); go.removeAttribute('data-armed'); go.textContent = 'Log this payment';
     go.disabled = true; out.textContent = 'Logging...';
+    send(body, out);
+  };
+  // Commas duplicate guard (2026-10-06): the server refuses money Commas already counted for this customer, and answers
+  // needs_confirm when Commas has an unmatched payment of the same amount; that button resends with confirm_different.
+  function send(body, out) {
     fetch(API + '?r=' + encodeURIComponent(T), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json(); })
-      .then(function (j) { go.disabled = false; if (!j.ok) { out.textContent = j.error || 'Could not log it.'; return; } out.textContent = 'Logged (#' + j.id + '). ' + (j.texted && j.texted.length ? 'Texted ' + j.texted.join(', ') + ' to approve it.' : 'Nobody could be texted, tell Chris.'); load(); })
+      .then(function (j) { go.disabled = false; if (!j.ok) { out.textContent = j.error || 'Could not log it.'; if (j.needs_confirm) confirmButton(body, out); return; } out.textContent = 'Logged (#' + j.id + '). ' + (j.texted && j.texted.length ? 'Texted ' + j.texted.join(', ') + ' to approve it.' : 'Nobody could be texted, tell Chris.'); load(true); })
       .catch(function (e) { go.disabled = false; out.textContent = 'Could not log it: ' + e + '. Screenshot this and send it to Chris.'; console.error(e); });
+  }
+  function confirmButton(body, out) {
+    var b = document.createElement('button'); b.className = 'btn'; b.style.background = 'var(--amber)'; b.textContent = 'This is a different payment - log it';
+    b.onclick = function () { b.disabled = true; go.disabled = true; out.textContent = 'Logging...'; body.confirm_different = true; send(body, out); };
+    out.appendChild(document.createElement('br')); out.appendChild(b);
+  }
+}
+
+// ---- After-call reports (Chris 2026-10-12). One short report per GHL booked call: outcome, objection when it matters,
+// follow-up date, what was pitched, lead quality, notes. Answers the system filled in from GHL agreements and payments
+// are marked AUTO until the rep changes them. While a form is open the minute refresh keeps it exactly as it is.
+function acLists() { var M = (LAST && LAST.calls_meta) || {}; return { M: M, out: M.outcomes || [], obj: M.objections || [], need: M.needs_objection || [], ns: M.not_showed || ['no_show', 'rescheduled'] }; }
+function niceDay(ymd) { return /^\d{4}-\d{2}-\d{2}$/.test(ymd || '') ? new Date(ymd + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' }) : ''; }
+function acLabel(k) { var o = acLists().out.filter(function (x) { return x[0] === k; })[0]; return o ? o[1] : k; }
+function acCall(id) { return ((LAST && LAST.calls) || []).filter(function (c) { return c.id === id; })[0] || null; }
+function addDaysYmd(ymd, n) { var p = String(ymd).split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2] + n)).toISOString().slice(0, 10); }
+function draftFor(c) {
+  if (AC.d[c.id]) return AC.d[c.id];
+  var r = c.report, v = (c.prefill && c.prefill.values) || {}, s = function (x) { return x == null ? '' : String(Number(x)); };
+  AC.d[c.id] = r ? { outcome: r.outcome, objection: r.objection || '', objection_other: r.objection_other || '', follow_up_on: r.follow_up_on || '', reviews_pitched: s(r.reviews_pitched), price_quoted: s(r.price_quoted), agreement_sent: r.agreement_sent == null ? null : r.agreement_sent, lead_quality: r.lead_quality || 0, notes: r.notes || '' }
+    : { outcome: v.outcome || '', objection: '', objection_other: '', follow_up_on: '', reviews_pitched: s(v.reviews_pitched), price_quoted: s(v.price_quoted), agreement_sent: v.agreement_sent === true ? true : null, lead_quality: 0, notes: '' };
+  return AC.d[c.id];
+}
+function autoTag(c, f) { var v = (c.prefill && c.prefill.values) || {}, d = AC.d[c.id] || {}; return (f in v) && String(d[f]) === String(v[f]) ? '<span class="auto">AUTO</span>' : ''; }
+function acRow(c) {
+  var st = c.report ? '<span class="pill done">DONE: ' + esc(acLabel(c.report.outcome).toUpperCase()) + '</span>' : c.missing ? '<span class="pill todo">NEEDS REPORT</span>' : '<span class="pill later">LATER TODAY</span>';
+  return '<div class="cl' + (AC.open === c.id ? ' open' : '') + '" data-ac="' + esc(c.id) + '"><div class="top"><div><div class="biz">' + esc(c.lead) + '</div><div class="sub">' + esc((c.business ? c.business + ' - ' : '') + c.when) + '</div>'
+    + (AC.flash === c.id ? '<div class="saved">Saved. Tap to change it (open for ' + (acLists().M.edit_days || 7) + ' days).</div>' : '') + '</div>' + st + '</div></div>';
+}
+function acForm(c) {
+  var L = acLists(), d = draftFor(c), today = L.M.today;
+  var taps = function (cls, f, opts) { return '<div class="taps ' + cls + '">' + opts.map(function (o) { return '<button type="button" class="tap' + (String(d[f]) === String(o[0]) ? ' on' : '') + '" data-f="' + f + '" data-v="' + esc(o[0]) + '">' + esc(o[1]) + '</button>'; }).join('') + '</div>'; };
+  var h = c.prefill && c.prefill.note ? '<div class="note">' + esc(c.prefill.note) + '</div>' : '';
+  h += '<div class="q">What happened?' + autoTag(c, 'outcome') + '</div>' + taps('', 'outcome', L.out);
+  // no show / rescheduled: the call did not happen, nothing else to fill in, one tap saves it
+  if (L.ns.indexOf(d.outcome) >= 0) return h + '<button type="button" class="btn" id="ac-save">Save as ' + esc(acLabel(d.outcome).toLowerCase()) + '</button><button type="button" class="btn ghost" id="ac-close">Close</button><div class="out" id="ac-out"></div>';
+  if (L.need.indexOf(d.outcome) >= 0) {
+    h += '<div class="q">Main objection</div>' + taps('one', 'objection', L.obj);
+    if (d.objection === 'other') h += '<input id="ac-objection_other" data-t="objection_other" maxlength="200" placeholder="What did they say?" value="' + esc(d.objection_other) + '" style="margin-top:8px">';
+  }
+  if (d.outcome === 'follow_up') h += '<div class="q">Follow up on</div><input id="ac-follow_up_on" data-t="follow_up_on" type="date" min="' + esc(today) + '" max="' + esc(addDaysYmd(today, L.M.follow_up_max_days || 60)) + '" value="' + esc(d.follow_up_on) + '">';
+  h += '<div class="g2"><div><div class="q">Reviews pitched<span data-auto="reviews_pitched">' + autoTag(c, 'reviews_pitched') + '</span></div><input id="ac-reviews_pitched" data-t="reviews_pitched" inputmode="numeric" placeholder="10" value="' + esc(d.reviews_pitched) + '"></div>'
+    + '<div><div class="q">Price per review<span data-auto="price_quoted">' + autoTag(c, 'price_quoted') + '</span></div><input id="ac-price_quoted" data-t="price_quoted" inputmode="decimal" placeholder="650" value="' + esc(d.price_quoted) + '"></div></div>';
+  h += '<div class="q">Agreement sent?' + autoTag(c, 'agreement_sent') + '</div>' + taps('', 'agreement_sent', [[true, 'Yes'], [false, 'No']]);
+  h += '<div class="q">Lead quality (1 = bad, 5 = great)</div>' + taps('five', 'lead_quality', [[1, '1'], [2, '2'], [3, '3'], [4, '4'], [5, '5']]);
+  h += '<div class="q">Notes (optional)</div><textarea id="ac-notes" data-t="notes" maxlength="1000" placeholder="What should the next call know?">' + esc(d.notes) + '</textarea>';
+  return h + '<button type="button" class="btn" id="ac-save">' + (c.report ? 'Save changes' : 'Save report') + '</button><button type="button" class="btn ghost" id="ac-close">Close</button><div class="out" id="ac-out"></div>';
+}
+function acSection() {
+  var m = LAST, C = m.calls || [], M = m.calls_meta || {};
+  var head = '<h2>After-call reports' + (M.missing ? '<span class="badge">' + M.missing + ' to do</span>' : '') + '</h2>';
+  if (!m.calls_meta) return '';
+  if (M.error) return '<section id="ac">' + head + '<div class="empty">' + esc(M.error) + '</div></section>';
+  if (!C.length) return '<section id="ac">' + head + '<div class="empty">' + (M.reports_start && M.today < M.reports_start ? 'After-call reports start ' + niceDay(M.reports_start) + '. Your booked calls show here from that day.' : 'No calls booked with you in GHL in the last ' + (M.edit_days || 7) + ' days.') + '</div></section>';
+  if (AC.open && !acCall(AC.open)) AC.open = null;
+  return '<section id="ac">' + head + C.map(function (c) { return acRow(c) + (AC.open === c.id ? '<div class="acf" id="acf">' + acForm(c) + '</div>' : ''); }).join('')
+    + '<div class="empty">Tap a call and log what happened right after it ends. No show and Rescheduled save in one tap. AUTO answers came from GHL agreements and payments: check them. You can change a report for ' + (M.edit_days || 7) + ' days.</div></section>';
+}
+function refreshAC() {
+  var sec = document.getElementById('ac'); if (!sec || !LAST) return;
+  var tmp = document.createElement('div'); tmp.innerHTML = acSection(); if (!tmp.firstChild) return;
+  sec.parentNode.replaceChild(tmp.firstChild, sec); wireAC();
+}
+function wireAC() {
+  var sec = document.getElementById('ac'); if (!sec) return;
+  sec.onclick = function (e) {
+    var t = e.target.closest ? e.target.closest('[data-f],[data-ac],#ac-save,#ac-close') : null; if (!t) return;
+    if (t.id === 'ac-close') { AC.open = null; refreshAC(); return; }
+    var c = acCall(AC.open);
+    if (t.id === 'ac-save') { if (c) saveAC(c, t); return; }
+    if (t.hasAttribute('data-ac')) { var id = t.getAttribute('data-ac'); AC.open = AC.open === id ? null : id; AC.flash = null; refreshAC(); return; }
+    if (!c) return;
+    var f = t.getAttribute('data-f'), v = t.getAttribute('data-v'), d = draftFor(c);
+    if (f === 'agreement_sent') { var b = v === 'true'; d[f] = d[f] === b ? null : b; }
+    else if (f === 'lead_quality') d[f] = Number(v);
+    else d[f] = v;
+    var y = window.scrollY; document.getElementById('acf').innerHTML = acForm(c); window.scrollTo(0, y);
   };
+  sec.oninput = function (e) {
+    var f = e.target.getAttribute && e.target.getAttribute('data-t'), c = acCall(AC.open); if (!f || !c) return;
+    draftFor(c)[f] = e.target.value;
+    var tag = sec.querySelector('[data-auto="' + f + '"]'); if (tag) tag.innerHTML = autoTag(c, f);
+  };
+  sec.onchange = sec.oninput;   // date pickers on some phones only fire change
+}
+function saveAC(c, btn) {
+  var d = draftFor(c), out = document.getElementById('ac-out'), skip = acLists().ns.indexOf(d.outcome) >= 0;
+  if (!d.outcome) { out.textContent = 'Pick what happened on the call.'; return; }
+  if (!skip && !d.lead_quality) { out.textContent = 'Rate the lead from 1 to 5.'; return; }
+  var body = skip ? { action: 'post_call', appointment_id: c.id, call_at: c.call_at, outcome: d.outcome, prefilled: c.prefill || null }
+    : { action: 'post_call', appointment_id: c.id, call_at: c.call_at, outcome: d.outcome, objection: d.objection, objection_other: d.objection_other, follow_up_on: d.follow_up_on, reviews_pitched: d.reviews_pitched, price_quoted: d.price_quoted, agreement_sent: d.agreement_sent, lead_quality: d.lead_quality, notes: d.notes, prefilled: c.prefill || null };
+  btn.disabled = true; out.textContent = 'Saving...';
+  fetch(API + '?r=' + encodeURIComponent(T), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    .then(function (r) { return r.json(); })
+    .then(function (j) { btn.disabled = false; if (!j.ok) { out.textContent = j.error || 'Could not save it.'; return; } delete AC.d[c.id]; AC.open = null; AC.flash = c.id; load(true); })
+    .catch(function (e) { btn.disabled = false; out.textContent = 'Could not save it: ' + e + '. Screenshot this and send it to Chris.'; console.error(e); });
 }
 
 function tick() {
@@ -170,15 +295,22 @@ function fail(msg) {
   document.getElementById('app').innerHTML = '<div class="err">' + esc(msg) + '</div>';
 }
 
-function load() {
+// Never two board requests at once (2026-10-12): a slow answer must not stack minute ticks into a pile of requests on
+// the shared GHL token. A tick that finds one in flight is skipped; a reload asked for after a save waits for it.
+var LOADING = false, RELOAD = false;
+function load(after) {
   if (!T) { fail('This link is missing its access key. Ask Chris for your board link.'); return; }
+  if (LOADING) { if (after) RELOAD = true; return; }
+  LOADING = true;
+  var done = function () { LOADING = false; if (RELOAD) { RELOAD = false; load(); } };
   fetch(API + '?r=' + encodeURIComponent(T) + '&json=1', { cache: 'no-store' })
     .then(function (r) { if (r.status === 404) throw new Error('This link is not valid. Ask Chris for your board link.'); if (!r.ok) throw new Error('server ' + r.status); return r.json(); })
     .then(render)
-    .catch(function (e) { fail(e.message || String(e)); });
+    .catch(function (e) { fail(e.message || String(e)); })
+    .then(done, done);
 }
 load();
-setInterval(load, 60000);
+setInterval(function () { load(); }, 60000);
 setInterval(tick, 5000);
 //]]></script>
 </body>
