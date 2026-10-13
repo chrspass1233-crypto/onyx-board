@@ -297,17 +297,24 @@ function fail(msg) {
 
 // Never two board requests at once (2026-10-12): a slow answer must not stack minute ticks into a pile of requests on
 // the shared GHL token. A tick that finds one in flight is skipped; a reload asked for after a save waits for it.
-var LOADING = false, RELOAD = false;
+// A request with no answer after LOAD_MS is cut off (2026-10-13), so a hung request can never stop the refreshes: the
+// guard clears at the time limit even if the browser cannot abort, and a late answer is then ignored.
+var LOADING = false, RELOAD = false, LOAD_MS = 20000;
 function load(after) {
   if (!T) { fail('This link is missing its access key. Ask Chris for your board link.'); return; }
   if (LOADING) { if (after) RELOAD = true; return; }
   LOADING = true;
-  var done = function () { LOADING = false; if (RELOAD) { RELOAD = false; load(); } };
-  fetch(API + '?r=' + encodeURIComponent(T) + '&json=1', { cache: 'no-store' })
+  var over = false, ctl = typeof AbortController === 'function' ? new AbortController() : null;
+  var done = function (msg) {   // once only: the answer, an error or the time limit, whichever comes first
+    if (over) return; over = true; clearTimeout(timer);
+    if (msg) fail(msg);
+    LOADING = false; if (RELOAD) { RELOAD = false; load(); }
+  };
+  var timer = setTimeout(function () { if (ctl) ctl.abort(); done(lastOk ? 'no answer in ' + LOAD_MS / 1000 + ' seconds' : 'The board did not answer in ' + LOAD_MS / 1000 + ' seconds. It tries again every minute.'); }, LOAD_MS);
+  fetch(API + '?r=' + encodeURIComponent(T) + '&json=1', { cache: 'no-store', signal: ctl ? ctl.signal : undefined })
     .then(function (r) { if (r.status === 404) throw new Error('This link is not valid. Ask Chris for your board link.'); if (!r.ok) throw new Error('server ' + r.status); return r.json(); })
-    .then(render)
-    .catch(function (e) { fail(e.message || String(e)); })
-    .then(done, done);
+    .then(function (j) { if (!over) render(j); })
+    .then(function () { done(); }, function (e) { done(e.message || String(e)); });
 }
 load();
 setInterval(function () { load(); }, 60000);
