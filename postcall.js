@@ -17,13 +17,17 @@ function addDaysYmd(ymd, n) { var p = String(ymd).split('-'); return new Date(Da
 function draftFor(c) {
   if (AC.d[c.id]) return AC.d[c.id];
   var r = c.report, v = (c.prefill && c.prefill.values) || {}, s = function (x) { return x == null ? '' : String(Number(x)); };
-  AC.d[c.id] = r ? { outcome: r.outcome, objection: r.objection || '', objection_other: r.objection_other || '', follow_up_on: r.follow_up_on || '', reviews_pitched: s(r.reviews_pitched), price_quoted: s(r.price_quoted), agreement_sent: r.agreement_sent == null ? null : r.agreement_sent, lead_quality: r.lead_quality || 0, notes: r.notes || '' }
-    : { outcome: v.outcome || '', objection: '', objection_other: '', follow_up_on: '', reviews_pitched: s(v.reviews_pitched), price_quoted: s(v.price_quoted), agreement_sent: v.agreement_sent === true ? true : null, lead_quality: 0, notes: '' };
+  AC.d[c.id] = r ? { outcome: r.outcome, outcome_other: r.outcome_other || '', objection: r.objection || '', objection_other: r.objection_other || '', follow_up_on: r.follow_up_on || '', reviews_pitched: s(r.reviews_pitched), price_quoted: s(r.price_quoted), agreement_sent: r.agreement_sent == null ? null : r.agreement_sent, lead_quality: r.lead_quality || 0, notes: r.notes || '' }
+    : { outcome: v.outcome || '', outcome_other: '', objection: '', objection_other: '', follow_up_on: '', reviews_pitched: s(v.reviews_pitched), price_quoted: s(v.price_quoted), agreement_sent: v.agreement_sent === true ? true : null, lead_quality: 0, notes: '' };
   return AC.d[c.id];
 }
 function autoTag(c, f) { var v = (c.prefill && c.prefill.values) || {}, d = AC.d[c.id] || {}; return (f in v) && String(d[f]) === String(v[f]) ? '<span class="auto">AUTO</span>' : ''; }
+function acDone(r) {   // a custom outcome shows the rep's own words (clipped)
+  var t = r.outcome === 'custom' && r.outcome_other ? (r.outcome_other.length > 24 ? r.outcome_other.slice(0, 23).replace(/\s+$/, '') + '...' : r.outcome_other) : acLabel(r.outcome);
+  return 'DONE: ' + t.toUpperCase();
+}
 function acRow(c) {
-  var st = c.report ? '<span class="pill done">DONE: ' + esc(acLabel(c.report.outcome).toUpperCase()) + '</span>' : c.missing ? '<span class="pill todo">NEEDS REPORT</span>' : '<span class="pill later">LATER TODAY</span>';
+  var st = c.report ? '<span class="pill done">' + esc(acDone(c.report)) + '</span>' : c.missing ? '<span class="pill todo">NEEDS REPORT</span>' : '<span class="pill later">LATER TODAY</span>';
   return '<div class="cl' + (AC.open === c.id ? ' open' : '') + '" data-ac="' + esc(c.id) + '"><div class="top"><div><div class="biz">' + esc(c.lead) + '</div><div class="sub">' + esc((c.business ? c.business + ' - ' : '') + c.when) + '</div>'
     + (AC.flash === c.id ? '<div class="saved">Saved. Tap to change it (open for ' + (acLists().M.edit_days || 7) + ' days).</div>' : '') + '</div>' + st + '</div></div>';
 }
@@ -32,6 +36,7 @@ function acForm(c) {
   var taps = function (cls, f, opts) { return '<div class="taps ' + cls + '">' + opts.map(function (o) { return '<button type="button" class="tap' + (String(d[f]) === String(o[0]) ? ' on' : '') + '" data-f="' + f + '" data-v="' + esc(o[0]) + '">' + esc(o[1]) + '</button>'; }).join('') + '</div>'; };
   var h = c.prefill && c.prefill.note ? '<div class="note">' + esc(c.prefill.note) + '</div>' : '';
   h += '<div class="q">What happened?' + autoTag(c, 'outcome') + '</div>' + taps('', 'outcome', L.out);
+  if (d.outcome === 'custom') h += '<input id="ac-outcome_other" data-t="outcome_other" maxlength="200" placeholder="Say what happened on the call" value="' + esc(d.outcome_other) + '" style="margin-top:8px">';
   // no show / rescheduled: the call did not happen, nothing else to fill in, one tap saves it
   if (L.ns.indexOf(d.outcome) >= 0) return h + '<button type="button" class="btn" id="ac-save">Save as ' + esc(acLabel(d.outcome).toLowerCase()) + '</button><button type="button" class="btn ghost" id="ac-close">Close</button><div class="out" id="ac-out"></div>';
   if (L.need.indexOf(d.outcome) >= 0) {
@@ -86,9 +91,10 @@ function wireAC() {
 function saveAC(c, btn) {
   var d = draftFor(c), out = document.getElementById('ac-out'), skip = acLists().ns.indexOf(d.outcome) >= 0;
   if (!d.outcome) { out.textContent = 'Pick what happened on the call.'; return; }
+  if (d.outcome === 'custom' && Array.from(String(d.outcome_other || '').trim()).length < 2) { out.textContent = 'Say what happened on the call.'; return; }
   if (!skip && !d.lead_quality) { out.textContent = 'Rate the lead from 1 to 5.'; return; }
   var body = skip ? { action: 'post_call', appointment_id: c.id, call_at: c.call_at, outcome: d.outcome, prefilled: c.prefill || null }
-    : { action: 'post_call', appointment_id: c.id, call_at: c.call_at, outcome: d.outcome, objection: d.objection, objection_other: d.objection_other, follow_up_on: d.follow_up_on, reviews_pitched: d.reviews_pitched, price_quoted: d.price_quoted, agreement_sent: d.agreement_sent, lead_quality: d.lead_quality, notes: d.notes, prefilled: c.prefill || null };
+    : { action: 'post_call', appointment_id: c.id, call_at: c.call_at, outcome: d.outcome, outcome_other: d.outcome === 'custom' ? d.outcome_other : '', objection: d.objection, objection_other: d.objection_other, follow_up_on: d.follow_up_on, reviews_pitched: d.reviews_pitched, price_quoted: d.price_quoted, agreement_sent: d.agreement_sent, lead_quality: d.lead_quality, notes: d.notes, prefilled: c.prefill || null };
   btn.disabled = true; out.textContent = 'Saving...';
   acPost(body)
     .then(function (j) { btn.disabled = false; if (!j.ok) { out.textContent = j.error || 'Could not save it.'; return; } delete AC.d[c.id]; AC.open = null; AC.flash = c.id; load(true); })

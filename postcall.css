@@ -14,3 +14,4 @@
 .acf .note{color:var(--dim);font-size:13px;margin-top:12px;border-left:3px solid var(--blue);padding-left:8px}
 .acf .btn{background:var(--green);color:#04120a;border:0;border-radius:10px;padding:12px 18px;font:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-top:14px;min-height:46px}
 .acf .btn:disabled{opacity:.5;cursor:default}.acf .btn.ghost{background:transparent;color:var(--dim);border:1px solid var(--line);margin-left:6px}.acf .out{color:var(--amber);font-size:14px;margin-top:8px}
+.taps .tap[data-f=outcome][data-v=custom]{grid-column:1/-1}
