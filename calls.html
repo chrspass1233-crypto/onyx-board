@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>After-call reports</title>
+<style>
+:root{--bg:#0b0f14;--card:#131a23;--line:#1f2a37;--tx:#e6edf3;--dim:#8b98a5;--green:#3fb950;--amber:#d29922;--red:#f85149;--blue:#58a6ff}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:24px 16px}
+.wrap{max-width:640px;margin:0 auto}
+h1{font-size:22px;margin:0}
+.asof{color:var(--dim);font-size:13px;margin:4px 0 20px}
+.asof b{color:var(--green);font-weight:600}
+.asof a{color:var(--dim)}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:18px;overflow:hidden}
+section h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:0;padding:12px 14px;border-bottom:1px solid var(--line)}
+.biz{font-weight:600}
+.sub{color:var(--dim);font-size:13px}
+.pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.empty{color:var(--dim);padding:14px;font-size:14px}
+.err{background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.4);border-radius:10px;padding:14px;color:var(--tx);margin-bottom:14px}
+.si{padding:14px}
+.si .names{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.si .tap{width:100%}
+.si input{width:100%;background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:12px;font:inherit;font-size:22px;letter-spacing:6px;text-align:center}
+.si .btn{background:var(--green);color:#04120a;border:0;border-radius:10px;padding:12px 18px;font:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-top:12px;min-height:46px;width:100%}
+.si .btn:disabled{opacity:.5;cursor:default}
+.si .link{background:none;border:0;color:var(--blue);font:inherit;font-size:14px;cursor:pointer;padding:10px 0 0;display:block}.si .link:disabled{color:var(--dim);cursor:default}
+.si .msg{color:var(--dim);font-size:14px;margin:0 0 12px}
+.si .out{color:var(--amber);font-size:14px;margin-top:10px;min-height:1em}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
+</style>
+<link rel="stylesheet" href="postcall.css?v=27" />
+</head>
+<body>
+<div class="wrap">
+  <h1>After-call reports</h1>
+  <div class="asof" id="asof"><span class="spin"></span>Loading...</div>
+  <div id="app"></div>
+</div>
+<script src="postcall.js?v=27"></script>
+<script>
+// ONE link for the team Discord (Chris 2026-10-14). The rep taps their name, types the 6-digit code texted to the phone
+// on their HQ seat, and stays signed in for 90 days (same sign-in as the HQ: the session sits in localStorage
+// "sop_session" on this site, so an HQ sign-in in this browser works here too). Then: their GHL booked calls and the
+// after-call form (postcall.js, the same form as on their board). No money is shown or fetched here.
+var API = 'https://rtbatvkghjnuwmgienqv.supabase.co/functions/v1/socialonyx-rep-board?calls=1';
+var SOP = 'https://rtbatvkghjnuwmgienqv.supabase.co/functions/v1/sop-library';
+var LAST = null, lastOk = null, WHO = '';
+var GEN = 0, CTL = null;   // a sign-in/out bumps GEN: any answer from before it is dropped (never shows the last person's calls)
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function getSession() { try { return localStorage.getItem('sop_session') || ''; } catch (e) { return ''; } }
+function setSession(s) { try { if (s) localStorage.setItem('sop_session', s); else localStorage.removeItem('sop_session'); } catch (e) {} }
+function api(body) {
+  return fetch(API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store' })
+    .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'server ' + r.status }; }); });
+}
+function acPost(body) {   // postcall.js saves through this
+  body.session = getSession();
+  return api(body).then(function (j) { if (j && j.signin) signIn(j.error); return j; });
+}
+function asof(html) { document.getElementById('asof').innerHTML = html; }
+
+// ---- sign in: tap your name -> code texted -> type it
+function signIn(msg) {
+  GEN++; if (CTL) CTL.abort(); CTL = null; LOADING = false; RELOAD = false;
+  setSession(''); LAST = null; lastOk = null; AC.open = null; AC.d = {}; AC.flash = null;
+  asof('Sign in once on this phone. You stay signed in for 90 days.');
+  var app = document.getElementById('app');
+  app.innerHTML = (msg ? '<div class="err">' + esc(msg) + '</div>' : '') + '<section><h2>Who are you?</h2><div class="si"><div class="names" id="names"><div class="empty"><span class="spin"></span>Loading names...</div></div><div class="out" id="si-out"></div></div></section>';
+  api({ action: 'signin_names' }).then(function (j) {
+    var box = document.getElementById('names'); if (!box) return;
+    if (!j.ok || !j.names || !j.names.length) { box.innerHTML = '<div class="empty">' + esc(j.error || 'Could not load the names. Refresh in a minute.') + '</div>'; return; }
+    box.innerHTML = j.names.map(function (n) { return '<button type="button" class="tap" data-key="' + esc(n.key) + '" data-name="' + esc(n.name) + '">' + esc(n.name) + '</button>'; }).join('');
+    box.onclick = function (e) { var t = e.target.closest ? e.target.closest('[data-key]') : null; if (t) askCode(t.getAttribute('data-key'), t.getAttribute('data-name')); };
+  }).catch(function () { var box = document.getElementById('names'); if (box) box.innerHTML = '<div class="empty">Could not load the names. Check your connection and refresh.</div>'; });
+}
+function askCode(key, name) {
+  var app = document.getElementById('app');
+  app.innerHTML = '<section><h2>' + esc(name) + '</h2><div class="si"><p class="msg" id="si-msg"><span class="spin"></span>Texting your code...</p>'
+    + '<input id="si-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="------" />'
+    + '<button type="button" class="btn" id="si-go">Sign in</button><div class="out" id="si-out"></div>'
+    + '<button type="button" class="link" id="si-again">Text me a code again</button><button type="button" class="link" id="si-back">Not ' + esc(name) + '? Pick your name</button></div></section>';
+  var msg = document.getElementById('si-msg'), out = document.getElementById('si-out'), go = document.getElementById('si-go'), code = document.getElementById('si-code');
+  var again = document.getElementById('si-again');
+  var send = function () {
+    if (again.disabled) return;
+    again.disabled = true; setTimeout(function () { again.disabled = false; }, 30000);   // each new code replaces the last one: no rapid re-sends
+    msg.innerHTML = '<span class="spin"></span>Texting your code...'; out.textContent = '';
+    api({ action: 'signin_code', key: key }).then(function (j) {
+      if (!j.ok) { msg.textContent = ''; out.textContent = j.error || 'Could not text your code.'; return; }
+      msg.textContent = 'We texted a 6-digit code to the phone on your HQ seat. The text says "Social Onyx SOP Library code". Type it here.';
+      try { code.focus(); } catch (e) {}
+    }).catch(function () { msg.textContent = ''; out.textContent = 'Could not reach the server. Check your connection.'; });
+  };
+  var verify = function () {
+    if (go.disabled) return;   // one check at a time: a double submit would burn 2 of the 5 tries
+    var c = code.value.replace(/\D/g, '');
+    if (c.length !== 6) { out.textContent = 'Enter the 6-digit code from the text.'; return; }
+    go.disabled = true; out.textContent = 'Checking...';
+    api({ action: 'signin_verify', key: key, code: c }).then(function (j) {
+      go.disabled = false;
+      if (!j.ok) { out.textContent = j.error || 'That did not work.'; return; }
+      setSession(j.session); WHO = j.name || name; start();
+    }).catch(function () { go.disabled = false; out.textContent = 'Could not reach the server. Check your connection.'; });
+  };
+  go.onclick = verify;
+  code.oninput = function () { if (code.value.replace(/\D/g, '').length === 6) verify(); };
+  again.onclick = send;
+  document.getElementById('si-back').onclick = function () { signIn(); };
+  send();
+}
+function signOut() {
+  var s = getSession(); setSession('');
+  if (s) fetch(SOP + '?t=' + encodeURIComponent(s), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) }).catch(function () {});
+  signIn('Signed out.');
+}
+
+// ---- signed in: the calls, refreshed every minute (never two requests at once; a hung one is cut off after 20 s)
+function tick() {
+  if (!lastOk) return;
+  var s = Math.round((Date.now() - lastOk.getTime()) / 1000);
+  asof('<b>' + esc(WHO || 'Signed in') + '</b> - updated ' + (s < 5 ? 'just now' : s < 60 ? s + 's ago' : Math.round(s / 60) + ' min ago') + '. Refreshes every minute. <a href="#" id="so">Sign out</a> (also signs this phone out of the HQ)');
+  var so = document.getElementById('so'); if (so) so.onclick = function (e) { e.preventDefault(); signOut(); };
+}
+function render(j) {
+  LAST = j; WHO = j.person || WHO;
+  var keep = AC.open ? document.getElementById('ac') : null, focus = keep && keep.contains(document.activeElement) ? document.activeElement : null;
+  var sel = focus && focus.selectionStart != null ? [focus.selectionStart, focus.selectionEnd] : null;
+  document.getElementById('app').innerHTML = acSection();
+  if (keep) { var now = document.getElementById('ac'); if (now) now.parentNode.replaceChild(keep, now); if (focus) { focus.focus(); try { if (sel) focus.setSelectionRange(sel[0], sel[1]); } catch (e) {} } } else wireAC();
+  lastOk = new Date(); tick();
+}
+function fail(msg) {
+  if (lastOk) { asof('<span style="color:var(--amber)">Could not refresh (' + esc(msg) + '). Showing calls from ' + lastOk.toLocaleTimeString() + '.</span>'); return; }
+  asof(''); document.getElementById('app').innerHTML = '<div class="err">' + esc(msg) + '</div><div class="asof"><a href="#" id="so">Sign out or switch person</a> (also signs this phone out of the HQ)</div>';
+  document.getElementById('so').onclick = function (e) { e.preventDefault(); signOut(); };
+}
+var LOADING = false, RELOAD = false, LOAD_MS = 20000;
+function load(after) {
+  if (!getSession()) return;
+  if (LOADING) { if (after) RELOAD = true; return; }
+  LOADING = true;
+  var gen = GEN, over = false, ctl = typeof AbortController === 'function' ? new AbortController() : null; CTL = ctl;
+  var done = function (msg) { if (over) return; over = true; clearTimeout(timer); if (gen !== GEN) return; if (msg) fail(msg); LOADING = false; CTL = null; if (RELOAD) { RELOAD = false; load(); } };
+  var timer = setTimeout(function () { if (ctl) ctl.abort(); done(lastOk ? 'no answer in ' + LOAD_MS / 1000 + ' seconds' : 'No answer in ' + LOAD_MS / 1000 + ' seconds. It tries again every minute.'); }, LOAD_MS);
+  fetch(API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'calls', session: getSession() }), cache: 'no-store', signal: ctl ? ctl.signal : undefined })
+    .then(function (r) { return r.json().catch(function () { throw new Error('server ' + r.status); }); })
+    .then(function (j) {
+      if (over || gen !== GEN) return;
+      if (j.signin) { over = true; clearTimeout(timer); LOADING = false; RELOAD = false; signIn(j.error); return; }
+      if (!j.ok) throw new Error(j.error || 'Could not load your calls.');
+      render(j);
+    })
+    .then(function () { done(); }, function (e) { done(e.message || String(e)); });
+}
+function start() {
+  asof('<span class="spin"></span>Loading your booked calls...'); document.getElementById('app').innerHTML = '';
+  load();
+}
+if (getSession()) start(); else signIn();
+setInterval(function () { load(); }, 60000);
+setInterval(tick, 5000);
+</script>
+</body>
+</html>

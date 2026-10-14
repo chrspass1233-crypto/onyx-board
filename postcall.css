@@ -1,0 +1,16 @@
+/* After-call report form (shared by index.html, the rep board, and calls.html, the one-link page). 2026-10-14. */
+.badge{display:inline-block;background:var(--red);color:#fff;font-size:11px;font-weight:700;letter-spacing:.04em;border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:1px}
+.cl{padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer}.cl.open{background:rgba(88,166,255,.06)}
+.cl .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.cl .saved{color:var(--green);font-size:13px;margin-top:2px}
+.pill.todo{background:rgba(248,81,73,.15);color:var(--red)}.pill.later{background:rgba(88,166,255,.15);color:var(--blue)}.pill.done{background:rgba(63,185,80,.15);color:var(--green)}
+.acf{padding:2px 14px 16px;border-bottom:1px solid var(--line);background:rgba(88,166,255,.06)}
+.acf .q{color:var(--dim);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin:14px 0 6px}
+.taps{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.taps.five{grid-template-columns:repeat(5,1fr)}.taps.one{grid-template-columns:1fr}
+.tap{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:11px 10px;font:inherit;font-size:15px;font-weight:600;cursor:pointer;min-height:46px}
+.taps.one .tap{text-align:left;font-weight:500;font-size:14px}.tap.on{background:var(--blue);border-color:var(--blue);color:#04121f}
+.auto{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--blue);border:1px solid rgba(88,166,255,.55);border-radius:999px;padding:0 6px;margin-left:6px;vertical-align:1px}
+.acf input,.acf textarea{width:100%;background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit;font-size:16px}.acf textarea{min-height:64px}
+.acf input+input{margin-top:8px}.acf .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.acf .note{color:var(--dim);font-size:13px;margin-top:12px;border-left:3px solid var(--blue);padding-left:8px}
+.acf .btn{background:var(--green);color:#04120a;border:0;border-radius:10px;padding:12px 18px;font:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-top:14px;min-height:46px}
+.acf .btn:disabled{opacity:.5;cursor:default}.acf .btn.ghost{background:transparent;color:var(--dim);border:1px solid var(--line);margin-left:6px}.acf .out{color:var(--amber);font-size:14px;margin-top:8px}
