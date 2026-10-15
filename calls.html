@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <meta name="robots" content="noindex" />
-<title>After-call reports</title>
+<title>Calls</title>
 <style>
 :root{--bg:#0b0f14;--card:#131a23;--line:#1f2a37;--tx:#e6edf3;--dim:#8b98a5;--green:#3fb950;--amber:#d29922;--red:#f85149;--blue:#58a6ff}
 *{box-sizing:border-box}
@@ -35,20 +35,24 @@ section h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:va
 @keyframes s{to{transform:rotate(360deg)}}
 </style>
 <link rel="stylesheet" href="postcall.css?v=28" />
+<link rel="stylesheet" href="precall.css?v=29" />
 </head>
 <body>
 <div class="wrap">
-  <h1>After-call reports</h1>
+  <h1>Your calls</h1>
   <div class="asof" id="asof"><span class="spin"></span>Loading...</div>
   <div id="app"></div>
 </div>
 <script src="postcall.js?v=28"></script>
+<script src="precall.js?v=29"></script>
 <script>
 // ONE link for the team Discord (Chris 2026-10-14). Sales reps tap their name; anyone else with an HQ seat taps "Someone
 // else" and types their HQ email (the HQ's own sign-in). Either way they type the 6-digit code texted to the phone
 // on their HQ seat, and stays signed in for 90 days (same sign-in as the HQ: the session sits in localStorage
 // "sop_session" on this site, so an HQ sign-in in this browser works here too). Then: their GHL booked calls and the
 // after-call form (postcall.js, the same form as on their board). No money is shown or fetched here.
+// rep-board v30 (2026-10-15; page assets ?v=29): "Today's calls" first (calls.html#today, the 8 AM text's link) and a Research card under every call
+// (precall.js; the calls answer carries today + research).
 var API = 'https://rtbatvkghjnuwmgienqv.supabase.co/functions/v1/socialonyx-rep-board?calls=1';
 var SOP = 'https://rtbatvkghjnuwmgienqv.supabase.co/functions/v1/sop-library';
 var LAST = null, lastOk = null, WHO = '';
@@ -166,9 +170,9 @@ function render(j) {
   LAST = j; WHO = j.person || WHO;
   var keep = AC.open ? document.getElementById('ac') : null, focus = keep && keep.contains(document.activeElement) ? document.activeElement : null;
   var sel = focus && focus.selectionStart != null ? [focus.selectionStart, focus.selectionEnd] : null;
-  document.getElementById('app').innerHTML = acSection();
+  document.getElementById('app').innerHTML = (typeof todaySection === 'function' ? todaySection() : '') + acSection();   // precall.js may not have loaded
   if (keep) { var now = document.getElementById('ac'); if (now) now.parentNode.replaceChild(keep, now); if (focus) { focus.focus(); try { if (sel) focus.setSelectionRange(sel[0], sel[1]); } catch (e) {} } } else wireAC();
-  lastOk = new Date(); tick();
+  lastOk = new Date(); tick(); if (typeof rsAfterRender === 'function') rsAfterRender();
 }
 function fail(msg) {
   if (lastOk) { asof('<span style="color:var(--amber)">Could not refresh (' + esc(msg) + '). Showing calls from ' + lastOk.toLocaleTimeString() + '.</span>'); return; }
