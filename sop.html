@@ -101,7 +101,14 @@ mark{background:#4d3a00;color:#ffd866;border-radius:2px}
 .signin{max-width:440px;margin:40px auto;text-align:left}
 .signin input{flex:1;font-size:16px;padding:10px 12px}
 .signin .code{font-size:22px;letter-spacing:6px;text-align:center;max-width:200px}
+/* Retirement step 1 (2026-10-21): Training moved to the Social Onyx app. The page below still works. */
+.moved{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;padding:10px 18px;background:#10243a;border-bottom:1px solid #1d4468;font-size:14px}
+.moved b{font-size:15px}
+.moved .sub{color:#a9bfd6}
+.moved a.btn{text-decoration:none;display:inline-block}
+.moved a.alt{color:var(--blue);font-size:14px}
 </style></head><body>
+<div class="moved" id="moved" role="region" aria-label="Training has moved"><b>Training moved to the Social Onyx app</b><span class="sub">Your bootcamps, SOPs and progress are there too. Sign in with the same email.</span><a class="btn primary" id="moved-go" href="https://socialonyx-portal.vercel.app/training" rel="noopener">Open the app</a><a class="alt" id="moved-edit" href="https://socialonyx-portal.vercel.app/training/edit" rel="noopener" style="display:none">Open the editors</a></div>
 <header><h1>Social Onyx &middot; SOP Library</h1><span class="who" id="who"></span><nav id="nav"></nav></header>
 <main>
 <div id="load">Loading your library...</div>
@@ -178,6 +185,7 @@ function load(){
       if(LEGACY&&T===LEGACY){document.getElementById('load').textContent=j.error==='unknown or inactive link'?'This link is not active. Open the library without a link and sign in with your email, or ask Chris.':('Could not load: '+(j.error||'unknown'));return;}
       setSession('');T='';signin(/expired|inactive|sign in/.test(j.error||'')?'Your sign-in has expired. Enter your email for a new code.':('Could not load: '+(j.error||'unknown')));return;
     }
+    var mv=document.getElementById('moved-edit');if(mv)mv.style.display=j.member.is_admin?'inline-block':'none';
     D=j; document.getElementById('who').innerHTML=esc(j.member.name)+' \u00b7 '+esc(j.member.role_name)+(j.member.is_ceo?'<span class="badge">CEO</span>':(j.member.is_admin?'<span class="badge">ADMIN</span>':''))+(j.member.via_session?' <button class="btn sm" id="signout" style="margin-left:10px">Sign out</button>':'');
     var so=document.getElementById('signout');if(so)so.onclick=function(){post({action:'logout'}).then(function(){setSession('');T='';signin('Signed out.');});};
     document.getElementById('load').style.display='none';document.getElementById('app').style.display='block';
