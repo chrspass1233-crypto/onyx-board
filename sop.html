@@ -108,7 +108,7 @@ mark{background:#4d3a00;color:#ffd866;border-radius:2px}
 .moved a.btn{text-decoration:none;display:inline-block}
 .moved a.alt{color:var(--blue);font-size:14px}
 </style></head><body>
-<div class="moved" id="moved" role="region" aria-label="Training has moved"><b>Training moved to the Social Onyx app</b><span class="sub">Your bootcamps, SOPs and progress are there too. Sign in with the same email.</span><a class="btn primary" id="moved-go" href="https://socialonyx-portal.vercel.app/training" rel="noopener">Open the app</a><a class="alt" id="moved-edit" href="https://socialonyx-portal.vercel.app/training/edit" rel="noopener" style="display:none">Open the editors</a></div>
+<div class="moved" id="moved" role="region" aria-label="Training has moved"><b>Training moved to the Social Onyx app</b><span class="sub">This page is read-only now. Your bootcamps, SOPs and progress are in the app. Sign in with the same email.</span><a class="btn primary" id="moved-go" href="https://socialonyx-portal.vercel.app/training" rel="noopener">Open the app</a><a class="alt" id="moved-edit" href="https://socialonyx-portal.vercel.app/training/edit" rel="noopener" style="display:none">Open the editors</a></div>
 <header><h1>Social Onyx &middot; SOP Library</h1><span class="who" id="who"></span><nav id="nav"></nav></header>
 <main>
 <div id="load">Loading your library...</div>
@@ -135,7 +135,7 @@ var HQ_TABS=['Team Board','PnL','Sales Mgmt','Creators & Ads','CSM Daily','Agree
 var REG_ROLES=[['sales_rep','Sales Rep'],['csm','Client Success Manager'],['creator','Creator'],['media_buyer','Media Buyer'],['ops','Fulfillment / Ops']];   // pickable at Request access; admin/CEO are granted by Chris   // Questions is artifact-only, not a served tab; Leaderboard is the live floor ranking
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(function(){t.style.display='none'},2600);}
-function post(body){return fetch(API+'?t='+encodeURIComponent(T),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json()});}
+function post(body){if(READONLY&&['progress','checklist','logout'].indexOf(body.action)<0)return Promise.resolve({ok:false,error:'Editing moved to the Social Onyx app.'});return fetch(API+'?t='+encodeURIComponent(T),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json()});}
 function postOpen(body){return fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json()});}
 function signin(msg,email){
   D=null;document.getElementById('app').style.display='none';document.getElementById('who').innerHTML='';document.getElementById('nav').innerHTML='';
@@ -193,9 +193,12 @@ function load(){
   }).catch(function(e){document.getElementById('load').textContent='Could not reach the library: '+e;});
 }
 function isAdmin(){return D&&D.member.is_admin;}
+/* Retirement step 2: this page is read-only. Editing, adding, deleting, inviting and roles live in the Social Onyx app. Progress ticks (progress, checklist) and sign-out still work. */
+var READONLY=true, PORTAL_EDIT='https://socialonyx-portal.vercel.app/training/edit';
+function canEdit(){return !READONLY&&isAdmin();}
 function nav(){
   var pages=[['home','Bootcamps'],['dir','SOP Directory']];
-  if(isAdmin()){pages.push(['team','Team and Roles']);pages.push(['vault','CEO Vault']);pages.push(['add','Add SOP']);}
+  if(isAdmin()){pages.push(['team','Team and Roles']);pages.push(['vault','CEO Vault']);if(canEdit())pages.push(['add','Add SOP']);}
   document.getElementById('nav').innerHTML=pages.map(function(p){return '<button data-p="'+p[0]+'" class="'+(route.page===p[0]?'on':'')+'">'+p[1]+'</button>'}).join('');
   [].forEach.call(document.querySelectorAll('#nav button'),function(b){b.onclick=function(){edit=null;route={page:b.getAttribute('data-p')};document.getElementById('q').value='';nav();render();window.scrollTo(0,0);}});
 }
@@ -253,8 +256,8 @@ function home(){
   var cards=D.bootcamps.map(function(b){var pct=b.total?Math.round(100*b.finished/b.total):0;
     return '<div class="card"><h2>'+esc(b.name)+(b.template?' <span class="tag tpl">template</span>':'')+'</h2><div class="sub">'+esc(b.description||'')+'</div>'+
     '<div class="bar"><i style="width:'+pct+'%"></i></div><div class="sub">'+b.finished+' of '+b.total+' lessons \u00b7 '+pct+'% complete'+(b.checklist.length?' \u00b7 checklist '+b.points+'/'+b.points_total+' pts':'')+'</div>'+
-    '<div style="margin-top:12px;display:flex;gap:8px"><button class="btn primary" data-open="'+b.id+'">'+(b.finished?'Continue':'Start')+'</button>'+(isAdmin()?'<button class="btn" data-bedit="'+b.id+'">Edit</button>':'')+'</div></div>';}).join('');
-  return '<div class="grid">'+cards+'</div>'+(isAdmin()?'<div style="margin-top:14px"><button class="btn" data-bnew="1">New bootcamp</button></div>':'')+'<div class="foot">Progress saves on its own when you tick a lesson. Use the search box above to find any SOP by what you are trying to do.</div>';
+    '<div style="margin-top:12px;display:flex;gap:8px"><button class="btn primary" data-open="'+b.id+'">'+(b.finished?'Continue':'Start')+'</button>'+(canEdit()?'<button class="btn" data-bedit="'+b.id+'">Edit</button>':'')+'</div></div>';}).join('');
+  return '<div class="grid">'+cards+'</div>'+(canEdit()?'<div style="margin-top:14px"><button class="btn" data-bnew="1">New bootcamp</button></div>':'')+'<div class="foot">Progress saves on its own when you tick a lesson. Use the search box above to find any SOP by what you are trying to do.</div>';
 }
 function bootcamp(id,lessonId){
   var b=bootcampById(id); if(!b)return '<div class="empty">Not found.</div>';
@@ -263,13 +266,13 @@ function bootcamp(id,lessonId){
   var rail='<div class="rail card"><div style="font-weight:600">'+esc(b.name)+'</div><div class="sub">'+b.finished+' of '+b.total+' done</div><div class="bar"><i style="width:'+(b.total?Math.round(100*b.finished/b.total):0)+'%"></i></div>';
   b.modules.forEach(function(m){rail+='<div class="mod">'+esc(m.title)+'</div>';m.lessons.forEach(function(l){rail+='<div class="l '+(l.done?'done':'')+' '+(current&&l.id===current.id?'on':'')+'" data-go="'+b.id+'|'+l.id+'"><span class="dot"></span><span>'+esc(l.title)+'</span></div>';});});
   if(b.checklist.length)rail+='<div class="mod">30-day ramp</div><div class="l '+(lessonId==='checklist'?'on':'')+'" data-go="'+b.id+'|checklist"><span class="dot" style="border-color:var(--amber)"></span><span>Checklist \u00b7 '+b.points+'/'+b.points_total+' pts</span></div>';
-  rail+='<div style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn" data-home="1">All bootcamps</button>'+(isAdmin()?'<button class="btn" data-bedit="'+b.id+'">Edit bootcamp</button>':'')+'</div></div>';
+  rail+='<div style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn" data-home="1">All bootcamps</button>'+(canEdit()?'<button class="btn" data-bedit="'+b.id+'">Edit bootcamp</button>':'')+'</div></div>';
   var body;
   if(lessonId==='checklist')body=checklist(b);
   else if(current){var it=current.item_id?itemById(current.item_id):null;
     body='<div class="doc">'+(it?docBody(it):'<h1>'+esc(current.title)+'</h1><p class="meta">Template lesson. Not written yet.</p><p>This slot is reserved. The person who owns this role writes it (Edit bootcamp, then attach or create an SOP for this lesson).</p>'+(current.link?'<p><a href="'+esc(current.link)+'" target="_blank" rel="noopener">Open the linked resource</a></p>':''))+
-      '<div class="docbar"><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="lesson-done" data-l="'+current.id+'" '+(current.done?'checked':'')+' style="width:18px;height:18px;accent-color:var(--green)"> Mark this lesson done</label>'+nextBtn(b,current)+(isAdmin()&&it?'<button class="btn" data-edit="'+it.id+'" data-ctx="'+b.id+'|'+current.id+'">Edit this SOP</button>':'')+'</div></div>';}
-  else body='<div class="empty">No lessons yet.'+(isAdmin()?' Use Edit bootcamp to add some.':'')+'</div>';
+      '<div class="docbar"><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="lesson-done" data-l="'+current.id+'" '+(current.done?'checked':'')+' style="width:18px;height:18px;accent-color:var(--green)"> Mark this lesson done</label>'+nextBtn(b,current)+(canEdit()&&it?'<button class="btn" data-edit="'+it.id+'" data-ctx="'+b.id+'|'+current.id+'">Edit this SOP</button>':'')+'</div></div>';}
+  else body='<div class="empty">No lessons yet.'+(canEdit()?' Use Edit bootcamp to add some.':'')+'</div>';
   return '<div class="two">'+rail+'<div>'+body+'</div></div>';
 }
 function nextBtn(b,current){var all=[];b.modules.forEach(function(m){m.lessons.forEach(function(l){all.push(l)})});var i=all.indexOf(current);if(i>=0&&i<all.length-1)return '<button class="btn" data-go="'+b.id+'|'+all[i+1].id+'">Next lesson</button>';if(b.checklist.length)return '<button class="btn" data-go="'+b.id+'|checklist">Open the 30-day checklist</button>';return '';}
@@ -281,13 +284,13 @@ function docBody(it){
   var meta=[it.position?'For: '+esc(it.position):'',it.department?'Department: '+esc(it.department):'',(it.software&&it.software.length)?'Software: '+esc(it.software.join(', ')):''].filter(Boolean).join(' \u00b7 ');
   return '<h1>'+esc(it.title)+'</h1><div class="meta">'+meta+(it.updated_at?' \u00b7 updated '+esc(String(it.updated_at).slice(0,10)):'')+'</div>'+renderMd(it.body_md||'_This SOP has no body yet._')+(it.link?'<p><a href="'+esc(it.link)+'" target="_blank" rel="noopener">Open the source document ('+esc(it.link_type||'link')+')</a></p>':'');
 }
-function doc(id){var it=itemById(id);if(!it)return '<div class="empty">Not found.</div>';return '<div class="doc">'+docBody(it)+'<div class="docbar"><button class="btn" data-back="1">Back</button>'+(isAdmin()?'<button class="btn" data-edit="'+it.id+'">Edit this SOP</button>':'')+'</div></div>';}
+function doc(id){var it=itemById(id);if(!it)return '<div class="empty">Not found.</div>';return '<div class="doc">'+docBody(it)+'<div class="docbar"><button class="btn" data-back="1">Back</button>'+(canEdit()?'<button class="btn" data-edit="'+it.id+'">Edit this SOP</button>':'')+'</div></div>';}
 function directory(vaultOnly){
   var items=D.items.filter(function(i){return vaultOnly?i.visibility==='ceo':i.visibility!=='ceo'});
   var depts=[];items.forEach(function(i){if(depts.indexOf(i.department)<0)depts.push(i.department)});
   var f='<div class="filters"><button class="'+(dirFilter==='all'?'on':'')+'" data-f="all">All ('+items.length+')</button>'+depts.map(function(d){return '<button class="'+(dirFilter===d?'on':'')+'" data-f="'+esc(d)+'">'+esc(d)+' ('+items.filter(function(i){return i.department===d}).length+')</button>'}).join('')+'</div>';
-  var rows=items.filter(function(i){return dirFilter==='all'||i.department===dirFilter}).map(function(i){return '<tr><td><span class="tag">'+esc(i.position||'')+'</span></td><td><b style="cursor:pointer" data-doc="'+i.id+'">'+esc(i.title)+'</b><div class="sub">'+esc(i.summary||'')+'</div></td><td>'+(i.link?'<a href="'+esc(i.link)+'" target="_blank" rel="noopener">'+esc(i.link_type||'link')+'</a>':'<span class="sub">in app</span>')+'</td><td class="sub">'+esc((i.software||[]).join(', '))+'</td><td class="sub">'+esc(i.department)+'</td>'+(isAdmin()?'<td><button class="btn sm" data-edit="'+i.id+'">Edit</button></td>':'')+'</tr>'}).join('');
-  return '<section><h3>'+(vaultOnly?'CEO vault (admins only)':'Every SOP you can see')+'</h3>'+f+'<div style="overflow-x:auto"><table class="dir"><tr><th>Position</th><th>SOP</th><th>Link</th><th>Software</th><th>Dept</th>'+(isAdmin()?'<th></th>':'')+'</tr>'+(rows||'<tr><td colspan="6" class="empty">Nothing here yet.</td></tr>')+'</table></div></section>';
+  var rows=items.filter(function(i){return dirFilter==='all'||i.department===dirFilter}).map(function(i){return '<tr><td><span class="tag">'+esc(i.position||'')+'</span></td><td><b style="cursor:pointer" data-doc="'+i.id+'">'+esc(i.title)+'</b><div class="sub">'+esc(i.summary||'')+'</div></td><td>'+(i.link?'<a href="'+esc(i.link)+'" target="_blank" rel="noopener">'+esc(i.link_type||'link')+'</a>':'<span class="sub">in app</span>')+'</td><td class="sub">'+esc((i.software||[]).join(', '))+'</td><td class="sub">'+esc(i.department)+'</td>'+(canEdit()?'<td><button class="btn sm" data-edit="'+i.id+'">Edit</button></td>':'')+'</tr>'}).join('');
+  return '<section><h3>'+(vaultOnly?'CEO vault (admins only)':'Every SOP you can see')+'</h3>'+f+'<div style="overflow-x:auto"><table class="dir"><tr><th>Position</th><th>SOP</th><th>Link</th><th>Software</th><th>Dept</th>'+(canEdit()?'<th></th>':'')+'</tr>'+(rows||'<tr><td colspan="6" class="empty">Nothing here yet.</td></tr>')+'</table></div></section>';
 }
 function search(q){
   var terms=q.toLowerCase().split(/\s+/).filter(function(x){return x.length>1});
@@ -357,6 +360,7 @@ function syncBootcampEdit(){
 function move(arr,i,d){var j=i+d;if(j<0||j>=arr.length)return;var t=arr[i];arr[i]=arr[j];arr[j]=t;}
 /* ---------- team ---------- */
 function team(){
+  if(READONLY)return teamReadonly();
   var roleOpts=function(sel){return D.roles.map(function(r){return '<option value="'+esc(r.id)+'" '+(sel===r.id?'selected':'')+'>'+esc(r.name)+'</option>'}).join('');};
   var roles=D.roles.map(function(r){return '<div class="sec"><div class="row"><span style="font-size:18px">'+esc(r.icon)+'</span><input type="text" class="r-name" data-r="'+esc(r.id)+'" value="'+esc(r.name)+'" style="font-weight:600"><select class="r-dept" data-r="'+esc(r.id)+'">'+DEPTS.map(function(d){return '<option '+(r.department===d?'selected':'')+'>'+d+'</option>'}).join('')+'</select><label class="chk"><input type="checkbox" class="r-admin" data-r="'+esc(r.id)+'" '+(r.is_admin?'checked':'')+'> Admin (sees and edits everything)</label><label class="chk"><input type="checkbox" class="r-tpl" data-r="'+esc(r.id)+'" '+(r.template?'checked':'')+'> Template</label></div><div class="row"><span class="sub">Sees SOP departments:</span>'+DEPTS.map(function(d){return '<label class="chk"><input type="checkbox" class="r-vis" data-r="'+esc(r.id)+'" value="'+d+'" '+((r.visible_departments||[]).indexOf(d)>=0?'checked':'')+'> '+d+'</label>'}).join('')+'<button class="btn sm primary" data-rsave="'+esc(r.id)+'">Save role</button><span class="sub">'+(D.members||[]).filter(function(m){return m.role_id===r.id&&m.active}).length+' member(s)</span></div>'
    +'<div class="row"><span class="sub">Sees HQ tabs:</span>'+HQ_TABS.map(function(tn){return '<label class="chk"><input type="checkbox" class="r-hq" data-r="'+esc(r.id)+'" value="'+esc(tn)+'" '+((r.hq_tabs||[]).indexOf(tn)>=0?'checked':'')+(r.is_admin?' disabled title="Admin roles see every tab"':'')+'> '+esc(tn)+'</label>'}).join('')+'</div></div>'}).join('');
@@ -367,6 +371,15 @@ function team(){
   return pending+'<section><h3>Invite someone</h3><div class="form"><div><label>Name</label><input type="text" id="inv-name" placeholder="Full name"></div><div><label>Email (how they sign in)</label><input type="text" id="inv-email" placeholder="name@email.com"></div><div><label>Mobile (the invite and every sign-in code are texted here)</label><input type="text" id="inv-phone" placeholder="+1 555 555 5555" inputmode="tel"></div><div><label>Role</label><select id="inv-role">'+roleOpts('sales_rep')+'</select></div><div style="align-self:end"><button class="btn primary" id="inv-go">Send invite</button></div><div class="full sub" id="inv-out"></div></div></section>'+
    '<section><h3>Members</h3><div style="overflow-x:auto"><table class="dir"><tr><th>Person</th><th>Role</th><th>Last seen</th><th></th></tr>'+(members||'<tr><td colspan="4" class="empty">Nobody invited yet.</td></tr>')+'</table></div><div class="foot">One link for everyone: '+esc(D.shell||location.origin+location.pathname)+'. People sign in with the email on this list; the 6-digit code is texted to their phone (with an email copy). After that they stay signed in for 90 days on that device. Change a role here and it applies the next time they open it. Deactivate signs them out and blocks them.</div></section>'+
    '<section><h3>Roles</h3>'+roles+'<div class="row"><input type="text" id="r-newid" placeholder="new-role-id (letters, dashes)" style="max-width:220px"><input type="text" id="r-newname" placeholder="Role name" style="max-width:220px"><button class="btn" id="r-add">Add role</button></div><div class="foot">A role decides which bootcamp a person sees (the one pointed at that role, plus Company Onboarding) and which SOP departments they can read. Admin roles see and edit everything.</div></section>';
+}
+function teamReadonly(){
+  var rn={};D.roles.forEach(function(r){rn[r.id]=r.name;});
+  var isPending=function(m){return !m.active&&m.requested_at&&!m.approved_at;};
+  var rows=(D.members||[]).map(function(m){return '<tr><td><b>'+esc(m.name)+'</b><div class="sub">'+esc(m.email||'')+'</div></td><td>'+esc(rn[m.role_id]||m.role_id)+'</td><td class="sub">'+(isPending(m)?'<span style="color:var(--amber)">Waiting for approval</span>':(m.active?(m.last_seen_at?esc(String(m.last_seen_at).slice(0,10)):'never'):'<span style="color:var(--amber)">Turned off</span>'))+'</td></tr>';}).join('');
+  var roles=D.roles.map(function(r){return '<tr><td><b>'+esc(r.name)+'</b>'+(r.is_admin?' <span class="tag tpl">admin</span>':'')+'</td><td class="sub">'+esc((r.visible_departments||[]).join(', ')||'none')+'</td><td class="sub">'+esc((r.hq_tabs||[]).join(', ')||'none')+'</td></tr>';}).join('');
+  return '<section><h3>Team and roles</h3><div class="sub">Adding people, approving requests and changing roles now happen in the Social Onyx app.</div><div class="docbar"><a class="btn primary" href="'+PORTAL_EDIT+'?s=team" rel="noopener" style="text-decoration:none">Edit people in the app</a><a class="btn" href="'+PORTAL_EDIT+'?s=roles" rel="noopener" style="text-decoration:none">Edit roles in the app</a></div></section>'+
+   '<section><h3>People</h3><div style="overflow-x:auto"><table class="dir"><tr><th>Person</th><th>Role</th><th>Last seen</th></tr>'+(rows||'<tr><td colspan="3" class="empty">Nobody yet.</td></tr>')+'</table></div></section>'+
+   '<section><h3>Roles</h3><div style="overflow-x:auto"><table class="dir"><tr><th>Role</th><th>Reads SOPs from</th><th>Sees HQ tabs</th></tr>'+roles+'</table></div></section>';
 }
 function addForm(){
   edit={kind:'doc',id:null,title:'',summary:'',department:'sales',position:'Sales Rep',software:'',link:'',visibility:'all',sort:100,model:{intro:'',introVideos:[],sections:[{heading:'What this covers',text:'',videos:[]}]},ctx:null};
