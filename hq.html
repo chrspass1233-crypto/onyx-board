@@ -59,7 +59,6 @@ var SOP='https://rtbatvkghjnuwmgienqv.supabase.co/functions/v1/sop-library';
 /* Roles a person may PICK when requesting access. Admin/CEO are granted by Chris, never picked; the server
    refuses them anyway. Keep in step with sop_roles. */
 var REG_ROLES=[['sales-rep','Sales Rep'],['csm','Client Success Manager'],['creator','Creator'],['media_buyer','Media Buyer'],['ops','Fulfillment / Ops']];
-var HQ_TABS=['Team Board','PnL','Sales Mgmt','Creators & Ads','CSM Daily','Agreements','Sales Comms','Leaderboard','Creator Comms','Pricing'];   // Questions is artifact-only (its answers self-save there), not a served tab. Leaderboard is the live floor ranking, served as a wrapper by the HQ function.
 var Q=new URLSearchParams(location.search);
 var LEGACY=Q.get('t')||'';
 function getSession(){try{return localStorage.getItem('sop_session')||''}catch(e){return ''}}
@@ -245,7 +244,7 @@ function team(){
   // Roles are READ ONLY here (owner 2026-10-22, "Just use the portal"): sop-library upsert_role rewrote the whole role, slugged the id, dropped hq_tabs and made a duplicate
   // media-buyer role. Editing, creating and removing roles happen only in the portal's Training > Roles editor (ROLES_URL). People actions below still work.
   var roles=TEAM.roles.map(function(r){var tabs=r.hq_tabs||[];return '<div class="card"><div class="row"><span style="font-size:18px">'+esc(r.icon)+'</span><b>'+esc(r.name)+'</b>'+(r.is_admin?'<span class="badge">ADMIN, sees every tab</span>':'')+'<span class="sub">'+(TEAM.members||[]).filter(function(m){return m.role_id===r.id&&m.active}).length+' member(s)</span>'+editLink('btn sm','Edit in app')+'</div>'
-   +'<div class="row"><span class="sub">HQ tabs:</span><span>'+(r.is_admin?'Every tab':(tabs.length?esc(tabs.join(', ')):'<span class="sub">No tabs assigned</span>'))+'</span></div><div class="row"><span class="sub">'+(r.is_admin?'Manual payments: always on':(r.can_approve_payments?'Manual payments: can approve':'Manual payments: cannot approve'))+'</span></div></div>'}).join('');
+   +'<div class="row"><span class="sub">HQ tabs:</span><span>'+(r.is_admin?'Every tab':(tabs.length?esc(tabs.join(', ')):'<span class="sub">No tabs assigned</span>'))+'</span></div><div class="row"><span class="sub">'+(r.is_admin?'Manual payments: always on':(r.can_approve_payments?'Manual payments: can approve (Chris controls this)':'Manual payments: cannot approve (Chris controls this)'))+'</span></div></div>'}).join('');
   // Create and remove also live in the portal now (owner 2026-10-22).
   var newRole='<div class="card" style="border-style:dashed"><h3>Add or remove roles</h3><div class="sub">To add or remove a role, open the Social Onyx app and go to Training &gt; Roles.</div><div class="row" style="margin-top:8px">'+editLink('btn primary','Open in app')+'</div></div>';
   var isPending=function(m){return !m.active&&m.requested_at&&!m.approved_at;};
@@ -256,7 +255,7 @@ function team(){
    +'<div class="foot">One link for everyone: <b>'+esc(location.origin+location.pathname)+'</b>. Drop it in Slack. People sign in with the email on this list; the 6-digit code is texted to their phone. They stay signed in for 90 days on that device, and the same sign-in opens the SOP Library. Their role decides which tabs the server sends them: nothing they cannot see ever reaches their browser.</div></div>'
    +'<div id="reps-card"></div>'
    +'<div class="card"><h3>Members</h3><div style="overflow-x:auto"><table><tr><th>Person</th><th>Role</th><th>Last seen</th><th></th></tr>'+(members||'<tr><td colspan="4" class="sub">Nobody invited yet.</td></tr>')+'</table></div></div>'
-   +'<div class="card" style="background:transparent;border:0;padding:0"><h3>Roles and permissions</h3><div class="row"><span class="sub">Roles are view-only here. To create, edit, or remove a role, go to the Social Onyx app.</span>'+editLink('btn sm primary','Open role editor')+'</div>'+roles+newRole+'<div class="foot">Role changes made in the app take effect the next time each person opens HQ. SOP access is also managed in the app.</div></div>';
+   +'<div class="card" style="background:transparent;border:0;padding:0"><h3>Roles and permissions</h3><div class="row"><span class="sub">Roles are view-only here. Tab access and people are managed in the Social Onyx app. Payment approval is set directly by Chris.</span>'+editLink('btn sm primary','Open role editor')+'</div>'+roles+newRole+'<div class="foot">Role changes made in the app take effect the next time each person opens HQ. SOP access is also managed in the app.</div></div>';
 }
 function wireTeam(){
   var v=document.getElementById('team');
